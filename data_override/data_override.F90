@@ -64,6 +64,7 @@ use fms2_io_mod,     only : FmsNetcdfFile_t, open_file, close_file, &
                             read_data, fms2_io_init, variable_exists, &
                             get_mosaic_tile_file
 use get_grid_version_mod, only: get_grid_version_1, get_grid_version_2
+use platform_mod
 
 implicit none
 private
@@ -79,8 +80,10 @@ type data_type
    character(len=128) :: fieldname_file !< fieldname used in the netcdf data file
    character(len=512) :: file_name   !< name of netCDF data file
    character(len=128) :: interpol_method   !< interpolation method (default "bilinear")
-   real               :: factor !< For unit conversion, default=1, see OVERVIEW above
-   real               :: lon_start, lon_end, lat_start, lat_end
+   real(r4_kind)      :: factor_r4 !< For unit conversion, default=1, see OVERVIEW above
+   real(r8_kind)      :: factor_r8 !< For unit conversion, default=1, see OVERVIEW above
+   real(r4_kind)      :: lon_start_r4, lon_end_r4, lat_start_r4, lat_end_r4
+   real(r8_kind)      :: lon_start_r8, lon_end_r8, lat_start_r8, lat_end_r8
    integer            :: region_type
 end type data_type
 
@@ -94,8 +97,10 @@ type override_type
    integer                          :: dims(4)                 !< dimensions(x,y,z,t) of the field in filename
    integer                          :: comp_domain(4)          !< istart,iend,jstart,jend for compute domain
    integer                          :: numthreads
-   real, allocatable                :: lon_in(:)
-   real, allocatable                :: lat_in(:)
+   real(r4_kind), allocatable       :: lon_in_r4(:)
+   real(r8_kind), allocatable       :: lon_in_r8(:)
+   real(r4_kind), allocatable       :: lat_in_r4(:)
+   real(r8_kind), allocatable       :: lat_in_r8(:)
    logical, allocatable             :: need_compute(:)
    integer                          :: numwindows
    integer                          :: window_size(2)
@@ -130,14 +135,22 @@ end interface
 type(domain2D),save :: ocn_domain,atm_domain,lnd_domain, ice_domain
 type(domainUG),save :: lnd_domainUG
 
-real, dimension(:,:), target, allocatable :: lon_local_ocn, lat_local_ocn
-real, dimension(:,:), target, allocatable :: lon_local_atm, lat_local_atm
-real, dimension(:,:), target, allocatable :: lon_local_ice, lat_local_ice
-real, dimension(:,:), target, allocatable :: lon_local_lnd, lat_local_lnd
-real                                      :: min_glo_lon_ocn, max_glo_lon_ocn
-real                                      :: min_glo_lon_atm, max_glo_lon_atm
-real                                      :: min_glo_lon_lnd, max_glo_lon_lnd
-real                                      :: min_glo_lon_ice, max_glo_lon_ice
+real(r4_kind), dimension(:,:), target, allocatable :: lon_local_ocn_4, lat_local_ocn_4
+real(r8_kind), dimension(:,:), target, allocatable :: lon_local_ocn_8, lat_local_ocn_8
+real(r4_kind), dimension(:,:), target, allocatable :: lon_local_atm_4, lat_local_atm_4
+real(r8_kind), dimension(:,:), target, allocatable :: lon_local_atm_8, lat_local_atm_8
+real(r4_kind), dimension(:,:), target, allocatable :: lon_local_ice_4, lat_local_ice_4
+real(r8_kind), dimension(:,:), target, allocatable :: lon_local_ice_8, lat_local_ice_8
+real(r4_kind), dimension(:,:), target, allocatable :: lon_local_lnd_4, lat_local_lnd_4
+real(r8_kind), dimension(:,:), target, allocatable :: lon_local_lnd_8, lat_local_lnd_8
+real(r4_kind)                             :: min_glo_lon_ocn_4, max_glo_lon_ocn_4
+real(r8_kind)                             :: min_glo_lon_ocn_8, max_glo_lon_ocn_8
+real(r4_kind)                             :: min_glo_lon_atm_4, max_glo_lon_atm_4
+real(r8_kind)                             :: min_glo_lon_atm_8, max_glo_lon_atm_8
+real(r4_kind)                             :: min_glo_lon_lnd_4, max_glo_lon_lnd_4
+real(r8_kind)                             :: min_glo_lon_lnd_8, max_glo_lon_lnd_8
+real(r4_kind)                             :: min_glo_lon_ice_4, max_glo_lon_ice_4
+real(r8_kind)                             :: min_glo_lon_ice_8, max_glo_lon_ice_8
 integer:: num_fields = 0 !< number of fields in override_array already processed
 type(data_type), dimension(max_table)           :: data_table !< user-provided data table
 type(data_type)                                 :: default_table
@@ -180,11 +193,12 @@ end function count_ne_1
 !! Data_table is initialized here with default values. Users should provide "real" values
 !! that will override the default values. Real values can be given using data_table, each
 !! line of data_table contains one data_entry. Items of data_entry are comma separated.
-subroutine data_override_init(Atm_domain_in, Ocean_domain_in, Ice_domain_in, Land_domain_in, Land_domainUG_in)
+subroutine data_override_init(Atm_domain_in, Ocean_domain_in, Ice_domain_in, Land_domain_in, Land_domainUG_in, precision)
   type (domain2d), intent(in), optional :: Atm_domain_in
   type (domain2d), intent(in), optional :: Ocean_domain_in, Ice_domain_in
   type (domain2d), intent(in), optional :: Land_domain_in
   type(domainUG) , intent(in), optional :: Land_domainUG_in
+  class(*), intent(in) :: precision
 
   character(len=128)    :: grid_file = 'INPUT/grid_spec.nc'
   integer               :: is,ie,js,je,use_get_grid_version
@@ -233,8 +247,14 @@ subroutine data_override_init(Atm_domain_in, Ocean_domain_in, Ice_domain_in, Lan
     default_table%fieldname_code = 'none'
     default_table%fieldname_file = 'none'
     default_table%file_name = 'none'
-    default_table%factor = 1.
     default_table%interpol_method = 'bilinear'
+    select type (precision)
+    type is (real(r4_kind))
+       default_table%factor_r4 = 1.
+    type is (real(r8_kind))
+       default_table%factor_r8 = 1.
+    end select
+
     do i = 1,max_table
        data_table(i) = default_table
     enddo
@@ -256,8 +276,14 @@ subroutine data_override_init(Atm_domain_in, Ocean_domain_in, Ice_domain_in, Lan
        if (index(lowercase(record), "inside_region") .ne. 0 .or. index(lowercase(record), "outside_region") .ne. 0) then
           if(index(lowercase(record), ".false.") .ne. 0 .or. index(lowercase(record), ".true.") .ne. 0 ) then
              ntable_lima = ntable_lima + 1
-             read(record,*,err=99) data_entry%gridname, data_entry%fieldname_code, data_entry%fieldname_file, &
-                                   data_entry%file_name, ongrid, data_entry%factor, region, region_type
+             select type (precision)
+             type is (real(r4_kind))
+                read(record,*,err=99) data_entry%gridname, data_entry%fieldname_code, data_entry%fieldname_file, &
+                                      data_entry%file_name, ongrid, data_entry%factor_r4, region, region_type
+             type is (real(r8_kind))
+                read(record,*,err=99) data_entry%gridname, data_entry%fieldname_code, data_entry%fieldname_file, &
+                                      data_entry%file_name, ongrid, data_entry%factor_r8, region, region_type
+             end select
              if(ongrid) then
                 data_entry%interpol_method = 'none'
              else
@@ -265,8 +291,14 @@ subroutine data_override_init(Atm_domain_in, Ocean_domain_in, Ice_domain_in, Lan
              endif
           else
              ntable_new=ntable_new+1
-             read(record,*,err=99) data_entry%gridname, data_entry%fieldname_code, data_entry%fieldname_file, &
-                                   data_entry%file_name, data_entry%interpol_method, data_entry%factor, region, region_type
+             select type (precision)
+             type is (real(r4_kind))
+                read(record,*,err=99) data_entry%gridname, data_entry%fieldname_code, data_entry%fieldname_file, &
+                                      data_entry%file_name, data_entry%interpol_method, data_entry%factor_r4, region, region_type
+             type is (real(r8_kind))
+                read(record,*,err=99) data_entry%gridname, data_entry%fieldname_code, data_entry%fieldname_file, &
+                                      data_entry%file_name, data_entry%interpol_method, data_entry%factor_r8, region, region_type
+             end select
              if (data_entry%interpol_method == 'default') then
                 data_entry%interpol_method = default_table%interpol_method
              endif
@@ -279,7 +311,12 @@ subroutine data_override_init(Atm_domain_in, Ocean_domain_in, Ice_domain_in, Lan
                 write(unit,*)" fieldname_code is ", trim(data_entry%fieldname_code)
                 write(unit,*)" fieldname_file is ", trim(data_entry%fieldname_file)
                 write(unit,*)" file_name is ", trim(data_entry%file_name)
-                write(unit,*)" factor is ", data_entry%factor
+                select type (precision)
+                type is (real(r4_kind))
+                   write(unit,*)" factor is ", data_entry%factor_r4
+                type is (real(r8_kind))
+                   write(unit,*)" factor is ", data_entry%factor_r8
+                end select
                 write(unit,*)" interpol_method is ", trim(data_entry%interpol_method)
                 call mpp_error(FATAL, 'data_override_mod: invalid last entry in data_override_table, ' &
                      //'its value should be "default", "bicubic", "bilinear" or "none" ')
@@ -298,30 +335,56 @@ subroutine data_override_init(Atm_domain_in, Ocean_domain_in, Ice_domain_in, Lan
              "data_override: fieldname_file must be specified in data_table when region_type is not NO_REGION")
           if( trim(data_entry%interpol_method) == 'none') call mpp_error(FATAL, &
              "data_override(data_override_init): ongrid must be false when region_type is not NO_REGION")
-          read(region,*) data_entry%lon_start, data_entry%lon_end, data_entry%lat_start, data_entry%lat_end
-          !--- make sure data_entry%lon_end > data_entry%lon_start and data_entry%lat_end > data_entry%lat_start
-          if(data_entry%lon_end .LE. data_entry%lon_start) call mpp_error(FATAL, &
-             "data_override: lon_end should be greater than lon_start")
-          if(data_entry%lat_end .LE. data_entry%lat_start) call mpp_error(FATAL, &
-             "data_override: lat_end should be greater than lat_start")
+          select type (precision)
+          type is (real(r4_kind))
+             read(region,*) data_entry%lon_start_r4, data_entry%lon_end_r4, data_entry%lat_start_r4, data_entry%lat_end_r4
+             !--- make sure data_entry%lon_end > data_entry%lon_start and data_entry%lat_end > data_entry%lat_start
+             if(data_entry%lon_end_r4 .LE. data_entry%lon_start_r4) call mpp_error(FATAL, &
+                "data_override: lon_end should be greater than lon_start")
+             if(data_entry%lat_end_r4 .LE. data_entry%lat_start_r4) call mpp_error(FATAL, &
+                "data_override: lat_end should be greater than lat_start")
+          type is (real(r8_kind))
+             read(region,*) data_entry%lon_start_r8, data_entry%lon_end_r8, data_entry%lat_start_r8, data_entry%lat_end_r8
+             !--- make sure data_entry%lon_end > data_entry%lon_start and data_entry%lat_end > data_entry%lat_start
+             if(data_entry%lon_end_r8 .LE. data_entry%lon_start_r8) call mpp_error(FATAL, &
+                "data_override: lon_end should be greater than lon_start")
+             if(data_entry%lat_end_r8 .LE. data_entry%lat_start_r8) call mpp_error(FATAL, &
+                "data_override: lat_end should be greater than lat_start")
+          end select
        else if (index(lowercase(record), ".false.") .ne. 0 .or. index(lowercase(record), ".true.") .ne. 0 ) then ! old format
           ntable_lima = ntable_lima + 1
-          read(record,*,err=99) data_entry%gridname, data_entry%fieldname_code, data_entry%fieldname_file, &
-                                   data_entry%file_name, ongrid, data_entry%factor
+          select type (precision)
+          type is (real(r4_kind))
+             read(record,*,err=99) data_entry%gridname, data_entry%fieldname_code, data_entry%fieldname_file, &
+                                      data_entry%file_name, ongrid, data_entry%factor_r4
+             data_entry%lon_start_r4 = 0.0
+             data_entry%lon_end_r4   = -1.0
+             data_entry%lat_start_r4 = 0.0
+             data_entry%lat_end_r4   = -1.0
+          type is (real(r8_kind))
+             read(record,*,err=99) data_entry%gridname, data_entry%fieldname_code, data_entry%fieldname_file, &
+                                      data_entry%file_name, ongrid, data_entry%factor_r8
+             data_entry%lon_start_r8 = 0.0
+             data_entry%lon_end_r8   = -1.0
+             data_entry%lat_start_r8 = 0.0
+             data_entry%lat_end_r8   = -1.0
+          end select
           if(ongrid) then
              data_entry%interpol_method = 'none'
           else
              data_entry%interpol_method = 'bilinear'
           endif
-          data_entry%lon_start = 0.0
-          data_entry%lon_end   = -1.0
-          data_entry%lat_start = 0.0
-          data_entry%lat_end   = -1.0
           data_entry%region_type = NO_REGION
        else                                      ! new format
           ntable_new=ntable_new+1
-          read(record,*,err=99) data_entry%gridname, data_entry%fieldname_code, data_entry%fieldname_file, &
-                                data_entry%file_name, data_entry%interpol_method, data_entry%factor
+          select type (precision)
+          type is (real(r4_kind))
+             read(record,*,err=99) data_entry%gridname, data_entry%fieldname_code, data_entry%fieldname_file, &
+                                   data_entry%file_name, data_entry%interpol_method, data_entry%factor_r4
+          type is (real(r8_kind))
+             read(record,*,err=99) data_entry%gridname, data_entry%fieldname_code, data_entry%fieldname_file, &
+                                   data_entry%file_name, data_entry%interpol_method, data_entry%factor_r8
+          end select
           if (data_entry%interpol_method == 'default') then
             data_entry%interpol_method = default_table%interpol_method
           endif
@@ -334,15 +397,28 @@ subroutine data_override_init(Atm_domain_in, Ocean_domain_in, Ice_domain_in, Lan
              write(unit,*)" fieldname_code is ", trim(data_entry%fieldname_code)
              write(unit,*)" fieldname_file is ", trim(data_entry%fieldname_file)
              write(unit,*)" file_name is ", trim(data_entry%file_name)
-             write(unit,*)" factor is ", data_entry%factor
+             select type (precision)
+             type is (real(r4_kind))
+                write(unit,*)" factor is ", data_entry%factor_r4
+             type is (real(r8_kind))
+                write(unit,*)" factor is ", data_entry%factor_r8
+             end select
              write(unit,*)" interpol_method is ", trim(data_entry%interpol_method)
              call mpp_error(FATAL, 'data_override_mod: invalid last entry in data_override_table, ' &
                                //'its value should be "default", "bicubic", "bilinear" or "none" ')
           endif
-          data_entry%lon_start = 0.0
-          data_entry%lon_end   = -1.0
-          data_entry%lat_start = 0.0
-          data_entry%lat_end   = -1.0
+          select type (precision)
+          type is (real(r4_kind))
+             data_entry%lon_start_r4 = 0.0
+             data_entry%lon_end_r4   = -1.0
+             data_entry%lat_start_r4 = 0.0
+             data_entry%lat_end_r4   = -1.0
+          type is (real(r8_kind))
+             data_entry%lon_start_r8 = 0.0
+             data_entry%lon_end_r8   = -1.0
+             data_entry%lat_start_r8 = 0.0
+             data_entry%lat_end_r8   = -1.0
+          end select
           data_entry%region_type = NO_REGION
        endif
        data_table(ntable) = data_entry
@@ -395,60 +471,121 @@ subroutine data_override_init(Atm_domain_in, Ocean_domain_in, Ice_domain_in, Lan
  endif
 
  if(use_get_grid_version .EQ. 1) then
-    if (atm_on .and. .not. allocated(lon_local_atm) ) then
+    select type (precision)
+    type is (real(r4_kind))
+    if (atm_on .and. .not. allocated(lon_local_atm_4) ) then
        call mpp_get_compute_domain( atm_domain,is,ie,js,je)
-       allocate(lon_local_atm(is:ie,js:je), lat_local_atm(is:ie,js:je))
-       call get_grid_version_1(grid_file, 'atm', atm_domain, is, ie, js, je, lon_local_atm, lat_local_atm, &
-          min_glo_lon_atm, max_glo_lon_atm, grid_center_bug )
+       allocate(lon_local_atm_4(is:ie,js:je), lat_local_atm_4(is:ie,js:je))
+       call get_grid_version_1(grid_file, 'atm', atm_domain, is, ie, js, je, lon_local_atm_4, lat_local_atm_4, &
+          min_glo_lon_atm_4, max_glo_lon_atm_4, grid_center_bug )
     endif
-    if (ocn_on .and. .not. allocated(lon_local_ocn) ) then
+    if (ocn_on .and. .not. allocated(lon_local_ocn_4) ) then
        call mpp_get_compute_domain( ocn_domain,is,ie,js,je)
-       allocate(lon_local_ocn(is:ie,js:je), lat_local_ocn(is:ie,js:je))
-       call get_grid_version_1(grid_file, 'ocn', ocn_domain, is, ie, js, je, lon_local_ocn, lat_local_ocn, &
-          min_glo_lon_ocn, max_glo_lon_ocn, grid_center_bug )
+       allocate(lon_local_ocn_4(is:ie,js:je), lat_local_ocn_4(is:ie,js:je))
+       call get_grid_version_1(grid_file, 'ocn', ocn_domain, is, ie, js, je, lon_local_ocn_4, lat_local_ocn_4, &
+          min_glo_lon_ocn_4, max_glo_lon_ocn_4, grid_center_bug )
     endif
 
-    if (lnd_on .and. .not. allocated(lon_local_lnd) ) then
+    if (lnd_on .and. .not. allocated(lon_local_lnd_4) ) then
        call mpp_get_compute_domain( lnd_domain,is,ie,js,je)
-       allocate(lon_local_lnd(is:ie,js:je), lat_local_lnd(is:ie,js:je))
-       call get_grid_version_1(grid_file, 'lnd', lnd_domain, is, ie, js, je, lon_local_lnd, lat_local_lnd, &
-          min_glo_lon_lnd, max_glo_lon_lnd, grid_center_bug )
+       allocate(lon_local_lnd_4(is:ie,js:je), lat_local_lnd_4(is:ie,js:je))
+       call get_grid_version_1(grid_file, 'lnd', lnd_domain, is, ie, js, je, lon_local_lnd_4, lat_local_lnd_4, &
+          min_glo_lon_lnd_4, max_glo_lon_lnd_4, grid_center_bug )
     endif
 
-    if (ice_on .and. .not. allocated(lon_local_ice) ) then
+    if (ice_on .and. .not. allocated(lon_local_ice_4) ) then
        call mpp_get_compute_domain( ice_domain,is,ie,js,je)
-       allocate(lon_local_ice(is:ie,js:je), lat_local_ice(is:ie,js:je))
-       call get_grid_version_1(grid_file, 'ice', ice_domain, is, ie, js, je, lon_local_ice, lat_local_ice, &
-          min_glo_lon_ice, max_glo_lon_ice, grid_center_bug )
+       allocate(lon_local_ice_4(is:ie,js:je), lat_local_ice_4(is:ie,js:je))
+       call get_grid_version_1(grid_file, 'ice', ice_domain, is, ie, js, je, lon_local_ice_4, lat_local_ice_4, &
+          min_glo_lon_ice_4, max_glo_lon_ice_4, grid_center_bug )
     endif
+    type is (real(r8_kind))
+    if (atm_on .and. .not. allocated(lon_local_atm_8) ) then
+       call mpp_get_compute_domain( atm_domain,is,ie,js,je)
+       allocate(lon_local_atm_8(is:ie,js:je), lat_local_atm_8(is:ie,js:je))
+       call get_grid_version_1(grid_file, 'atm', atm_domain, is, ie, js, je, lon_local_atm_8, lat_local_atm_8, &
+          min_glo_lon_atm_8, max_glo_lon_atm_8, grid_center_bug )
+    endif
+    if (ocn_on .and. .not. allocated(lon_local_ocn_8) ) then
+       call mpp_get_compute_domain( ocn_domain,is,ie,js,je)
+       allocate(lon_local_ocn_8(is:ie,js:je), lat_local_ocn_8(is:ie,js:je))
+       call get_grid_version_1(grid_file, 'ocn', ocn_domain, is, ie, js, je, lon_local_ocn_8, lat_local_ocn_8, &
+          min_glo_lon_ocn_8, max_glo_lon_ocn_8, grid_center_bug )
+    endif
+
+    if (lnd_on .and. .not. allocated(lon_local_lnd_8) ) then
+       call mpp_get_compute_domain( lnd_domain,is,ie,js,je)
+       allocate(lon_local_lnd_8(is:ie,js:je), lat_local_lnd_8(is:ie,js:je))
+       call get_grid_version_1(grid_file, 'lnd', lnd_domain, is, ie, js, je, lon_local_lnd_8, lat_local_lnd_8, &
+          min_glo_lon_lnd_8, max_glo_lon_lnd_8, grid_center_bug )
+    endif
+
+    if (ice_on .and. .not. allocated(lon_local_ice_8) ) then
+       call mpp_get_compute_domain( ice_domain,is,ie,js,je)
+       allocate(lon_local_ice_8(is:ie,js:je), lat_local_ice_8(is:ie,js:je))
+       call get_grid_version_1(grid_file, 'ice', ice_domain, is, ie, js, je, lon_local_ice_8, lat_local_ice_8, &
+          min_glo_lon_ice_8, max_glo_lon_ice_8, grid_center_bug )
+    endif
+    end select
  else
-   if (atm_on .and. .not. allocated(lon_local_atm) ) then
-       call mpp_get_compute_domain(atm_domain,is,ie,js,je)
-       allocate(lon_local_atm(is:ie,js:je), lat_local_atm(is:ie,js:je))
-       call get_grid_version_2(fileobj, 'atm', atm_domain, is, ie, js, je, lon_local_atm, lat_local_atm, &
-                               min_glo_lon_atm, max_glo_lon_atm )
+   select type (precision)
+   type is (real(r4_kind))
+   if (atm_on .and. .not. allocated(lon_local_atm_4) ) then
+       call mpp_get_compute_domain( atm_domain,is,ie,js,je)
+       allocate(lon_local_atm_4(is:ie,js:je), lat_local_atm_4(is:ie,js:je))
+       call get_grid_version_2(fileobj, 'atm', atm_domain, is, ie, js, je, lon_local_atm_4, lat_local_atm_4, &
+                               min_glo_lon_atm_4, max_glo_lon_atm_4 )
    endif
 
-   if (ocn_on .and. .not. allocated(lon_local_ocn) ) then
+   if (ocn_on .and. .not. allocated(lon_local_ocn_4) ) then
        call mpp_get_compute_domain( ocn_domain,is,ie,js,je)
-       allocate(lon_local_ocn(is:ie,js:je), lat_local_ocn(is:ie,js:je))
-       call get_grid_version_2(fileobj, 'ocn', ocn_domain, is, ie, js, je, lon_local_ocn, lat_local_ocn, &
-                               min_glo_lon_ocn, max_glo_lon_ocn )
+       allocate(lon_local_ocn_4(is:ie,js:je), lat_local_ocn_4(is:ie,js:je))
+       call get_grid_version_2(fileobj, 'ocn', ocn_domain, is, ie, js, je, lon_local_ocn_4, lat_local_ocn_4, &
+                               min_glo_lon_ocn_4, max_glo_lon_ocn_4 )
    endif
 
-   if (lnd_on .and. .not. allocated(lon_local_lnd) ) then
+   if (lnd_on .and. .not. allocated(lon_local_lnd_4) ) then
        call mpp_get_compute_domain( lnd_domain,is,ie,js,je)
-       allocate(lon_local_lnd(is:ie,js:je), lat_local_lnd(is:ie,js:je))
-       call get_grid_version_2(fileobj, 'lnd', lnd_domain, is, ie, js, je, lon_local_lnd, lat_local_lnd, &
-                               min_glo_lon_lnd, max_glo_lon_lnd )
+       allocate(lon_local_lnd_4(is:ie,js:je), lat_local_lnd_4(is:ie,js:je))
+       call get_grid_version_2(fileobj, 'lnd', lnd_domain, is, ie, js, je, lon_local_lnd_4, lat_local_lnd_4, &
+                               min_glo_lon_lnd_4, max_glo_lon_lnd_4 )
    endif
 
-   if (ice_on .and. .not. allocated(lon_local_ice) ) then
+   if (ice_on .and. .not. allocated(lon_local_ice_4) ) then
        call mpp_get_compute_domain( ice_domain,is,ie,js,je)
-       allocate(lon_local_ice(is:ie,js:je), lat_local_ice(is:ie,js:je))
-       call get_grid_version_2(fileobj, 'ocn', ice_domain, is, ie, js, je, lon_local_ice, lat_local_ice, &
-                               min_glo_lon_ice, max_glo_lon_ice )
+       allocate(lon_local_ice_4(is:ie,js:je), lat_local_ice_4(is:ie,js:je))
+       call get_grid_version_2(fileobj, 'ocn', ice_domain, is, ie, js, je, lon_local_ice_4, lat_local_ice_4, &
+                               min_glo_lon_ice_4, max_glo_lon_ice_4 )
    endif
+   type is (real(r8_kind))
+   if (atm_on .and. .not. allocated(lon_local_atm_8) ) then
+       call mpp_get_compute_domain( atm_domain,is,ie,js,je)
+       allocate(lon_local_atm_8(is:ie,js:je), lat_local_atm_8(is:ie,js:je))
+       call get_grid_version_2(fileobj, 'atm', atm_domain, is, ie, js, je, lon_local_atm_8, lat_local_atm_8, &
+                               min_glo_lon_atm_8, max_glo_lon_atm_8 )
+   endif
+
+   if (ocn_on .and. .not. allocated(lon_local_ocn_8) ) then
+       call mpp_get_compute_domain( ocn_domain,is,ie,js,je)
+       allocate(lon_local_ocn_8(is:ie,js:je), lat_local_ocn_8(is:ie,js:je))
+       call get_grid_version_2(fileobj, 'ocn', ocn_domain, is, ie, js, je, lon_local_ocn_8, lat_local_ocn_8, &
+                               min_glo_lon_ocn_8, max_glo_lon_ocn_8 )
+   endif
+
+   if (lnd_on .and. .not. allocated(lon_local_lnd_8) ) then
+       call mpp_get_compute_domain( lnd_domain,is,ie,js,je)
+       allocate(lon_local_lnd_8(is:ie,js:je), lat_local_lnd_8(is:ie,js:je))
+       call get_grid_version_2(fileobj, 'lnd', lnd_domain, is, ie, js, je, lon_local_lnd_8, lat_local_lnd_8, &
+                               min_glo_lon_lnd_8, max_glo_lon_lnd_8 )
+   endif
+
+   if (ice_on .and. .not. allocated(lon_local_ice_8) ) then
+       call mpp_get_compute_domain( ice_domain,is,ie,js,je)
+       allocate(lon_local_ice_8(is:ie,js:je), lat_local_ice_8(is:ie,js:je))
+       call get_grid_version_2(fileobj, 'ocn', ice_domain, is, ie, js, je, lon_local_ice_8, lat_local_ice_8, &
+                               min_glo_lon_ice_8, max_glo_lon_ice_8 )
+   endif
+   end select
  end if
  if(use_get_grid_version .EQ. 2) then
    call close_file(fileobj)
@@ -557,10 +694,11 @@ subroutine data_override_2d(gridname,fieldname,data_2D,time,override, is_in, ie_
   character(len=*), intent(in) :: fieldname !< field to override
   logical, intent(out), optional :: override !< true if the field has been overriden succesfully
   type(time_type), intent(in) :: time !<  model time
-  real, dimension(:,:), intent(inout) :: data_2D !< data returned by this call
+  class(*), dimension(:,:), intent(inout) :: data_2D !< data returned by this call
   integer,           optional,  intent(in) :: is_in, ie_in, js_in, je_in
 !  real, dimension(size(data_2D,1),size(data_2D,2),1) :: data_3D
-  real, dimension(:,:,:), allocatable ::  data_3D
+  real(r4_kind), dimension(:,:,:), allocatable ::  data_3D_4
+  real(r8_kind), dimension(:,:,:), allocatable ::  data_3D_8
   integer       :: index1
   integer       :: i
 
@@ -575,13 +713,24 @@ subroutine data_override_2d(gridname,fieldname,data_2D,time,override, is_in, ie_
   enddo
   if(index1 .eq. -1) return  ! NO override was performed
 
-  allocate(data_3D(size(data_2D,1),size(data_2D,2),1))
-  data_3D(:,:,1) = data_2D
-  call data_override_3d(gridname,fieldname,data_3D,time,override,data_index=index1,&
-                       is_in=is_in,ie_in=ie_in,js_in=js_in,je_in=je_in)
+  select type(data_2D)
+  type is (real(r4_kind))
+     allocate(data_3D_4(size(data_2D,1),size(data_2D,2),1))
+     data_3D_4(:,:,1) = data_2D
+     call data_override_3d(gridname,fieldname,data_3D_4,time,override,data_index=index1,&
+                          is_in=is_in,ie_in=ie_in,js_in=js_in,je_in=je_in)
 
-  data_2D(:,:) = data_3D(:,:,1)
-  deallocate(data_3D)
+     data_2D(:,:) = data_3D_4(:,:,1)
+     deallocate(data_3D_4)
+  type is (real(r8_kind))
+     allocate(data_3D_8(size(data_2D,1),size(data_2D,2),1))
+     data_3D_4(:,:,1) = data_2D
+     call data_override_3d(gridname,fieldname,data_3D_8,time,override,data_index=index1,&
+                          is_in=is_in,ie_in=ie_in,js_in=js_in,je_in=je_in)
+
+     data_2D(:,:) = data_3D_8(:,:,1)
+     deallocate(data_3D_8)
+  end select
 end subroutine data_override_2d
 
 !> @brief This routine performs data override for 3D fields
@@ -591,7 +740,7 @@ subroutine data_override_3d(gridname,fieldname_code,data,time,override,data_inde
   logical,           optional, intent(out) :: override !< true if the field has been overriden succesfully
   type(time_type),              intent(in) :: time !< (target) model time
   integer,           optional,  intent(in) :: data_index
-  real, dimension(:,:,:),    intent(inout) :: data !< data returned by this call
+  class(*), dimension(:,:,:),    intent(inout) :: data !< data returned by this call
   integer,           optional,  intent(in) :: is_in, ie_in, js_in, je_in
   logical, dimension(:,:,:),   allocatable :: mask_out
 
@@ -604,15 +753,19 @@ subroutine data_override_3d(gridname,fieldname_code,data,time,override,data_inde
   integer            :: id_time !< index for time interp in override array
   integer            :: axis_sizes(4)
   character(len=32)  :: axis_names(4)
-  real, dimension(:,:), pointer :: lon_local =>NULL() !< of output (target) grid cells
-  real, dimension(:,:), pointer :: lat_local =>NULL() !< of output (target) grid cells
-  real, dimension(:), allocatable :: lon_tmp, lat_tmp
+  real(r4_kind), dimension(:,:), pointer :: lon_local_4 =>NULL() !< of output (target) grid cells
+  real(r8_kind), dimension(:,:), pointer :: lon_local_8 =>NULL() !< of output (target) grid cells
+  real(r4_kind), dimension(:,:), pointer :: lat_local_4 =>NULL() !< of output (target) grid cells
+  real(r8_kind), dimension(:,:), pointer :: lat_local_8 =>NULL() !< of output (target) grid cells
+  real(r4_kind), dimension(:), allocatable :: lon_tmp_4, lat_tmp_4
+  real(r8_kind), dimension(:), allocatable :: lon_tmp_8, lat_tmp_8
 
   logical :: data_file_is_2D = .false.  !< data in netCDF file is 2D
   logical :: ongrid, use_comp_domain
   type(domain2D) :: domain
   integer :: curr_position !< position of the field currently processed in override_array
-  real :: factor
+  real(r4_kind) :: factor_4
+  real(r8_kind) :: factor_8
   integer, dimension(4) :: comp_domain = 0  !< istart,iend,jstart,jend for compute domain
   integer :: nxd, nyd, nxc, nyc, nwindows
   integer :: nwindows_x, ipos, jpos, window_size(2)
@@ -620,7 +773,8 @@ subroutine data_override_3d(gridname,fieldname_code,data,time,override,data_inde
   integer :: isw, iew, jsw, jew, n
   integer :: omp_get_num_threads, omp_get_thread_num, thread_id, window_id
   logical :: need_compute
-  real    :: lat_min, lat_max
+  real(r4_kind) :: lat_min_4, lat_max_4
+  real(r8_kind) :: lat_min_8, lat_max_8
   integer :: is_src, ie_src, js_src, je_src
   logical :: exists
   type(FmsNetcdfFile_t) :: fileobj
@@ -1037,7 +1191,7 @@ subroutine data_override_0d(gridname,fieldname_code,data,time,override,data_inde
                                                  !! different from the name in NetCDF data file)
   logical, intent(out), optional :: override !< true if the field has been overriden succesfully
   type(time_type), intent(in) :: time !< (target) model time
-  real,             intent(out) :: data !< output data array returned by this call
+  class(*),             intent(out) :: data !< output data array returned by this call
   integer, intent(in), optional :: data_index
 
   character(len=512) :: filename !< file containing source data
@@ -1046,7 +1200,8 @@ subroutine data_override_0d(gridname,fieldname_code,data,time,override,data_inde
   integer :: id_time !< index for time interp in override array
   integer :: curr_position !< position of the field currently processed in override_array
   integer :: i
-  real :: factor
+  real(r4_kind) :: factor_4
+  real(r8_kind) :: factor_8
 
   if(.not.module_is_initialized) &
        call mpp_error(FATAL,'Error: need to call data_override_init first')
@@ -1071,10 +1226,20 @@ subroutine data_override_0d(gridname,fieldname_code,data,time,override,data_inde
   endif
 
   fieldname = data_table(index1)%fieldname_file ! fieldname in netCDF data file
-  factor = data_table(index1)%factor
+  select type (data)
+  type is (real(r4_kind))
+     factor_4 = data_table(index1)%factor_4
+  type is (real(r8_kind))
+     factor_8 = data_table(index1)%factor_8
+  end select
 
   if(fieldname == "") then
-     data = factor
+     select type (data)
+     type is (real(r4_kind))
+        data = factor_4
+     type is (real(r8_kind))
+        data = factor_8
+     end select
      if(PRESENT(override)) override = .true.
      return
   else
@@ -1109,8 +1274,13 @@ subroutine data_override_0d(gridname,fieldname_code,data,time,override,data_inde
   endif !if curr_position < 0
 
   !10 do time interp to get data in compute_domain
-  call time_interp_external(id_time, time, data, verbose=.false.)
-  data = data*factor
+  select type (data)
+  type is (real(r4_kind))
+     call time_interp_external(id_time, time, data, verbose=.false.)
+     data = data*factor_4
+  type is (real(r8_kind))
+     data = data*factor_8
+  end select
 !$OMP END SINGLE
 
   if(PRESENT(override)) override = .true.

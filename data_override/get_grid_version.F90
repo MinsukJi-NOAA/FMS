@@ -33,10 +33,12 @@ use mpp_domains_mod, only : mpp_get_global_domain, mpp_get_data_domain
 use fms2_io_mod,     only : FmsNetcdfDomainFile_t, FmsNetcdfFile_t, open_file, close_file, &
                             variable_exists, read_data, get_variable_size, get_variable_num_dimensions
 use mosaic2_mod,     only : get_mosaic_tile_grid
+use platform_mod
 
 implicit none
 
-real, parameter    :: deg_to_radian=PI/180.
+real(r4_kind), parameter    :: deg_to_radian_4=PI/180.
+real(r8_kind), parameter    :: deg_to_radian_8=PI/180.
 contains
 
 !> Get lon and lat of three model (target) grids from grid_spec.nc
@@ -69,14 +71,16 @@ subroutine get_grid_version_1(grid_file, mod_name, domain, isc, iec, jsc, jec, l
   character(len=*),            intent(in) :: mod_name !< module name
   type(domain2d),              intent(in) :: domain !< 2D domain
   integer,                     intent(in) :: isc, iec, jsc, jec
-  real, dimension(isc:,jsc:), intent(out) :: lon, lat
-  real,                       intent(out) :: min_lon, max_lon
+  class(*), dimension(isc:,jsc:), intent(out) :: lon, lat
+  class(*),                       intent(out) :: min_lon, max_lon
   logical,           intent(in), optional :: grid_center_bug !< Enables legacy behaviour
 
   integer                                      :: i, j, siz(4)
   integer                                      :: nlon, nlat !< size of global lon and lat
-  real,          dimension(:,:,:), allocatable :: lon_vert, lat_vert !< of OCN grid vertices
-  real,          dimension(:),     allocatable :: glon, glat  !< lon and lat of 1-D grid of atm/lnd
+  real(r4_kind), dimension(:,:,:), allocatable :: lon_vert_4, lat_vert_4 !< of OCN grid vertices
+  real(r8_kind), dimension(:,:,:), allocatable :: lon_vert_8, lat_vert_8 !< of OCN grid vertices
+  real(r4_kind), dimension(:),     allocatable :: glon_4, glat_4  !< lon and lat of 1-D grid of atm/lnd
+  real(r8_kind), dimension(:),     allocatable :: glon_8, glat_8  !< lon and lat of 1-D grid of atm/lnd
   logical                                      :: is_new_grid
   integer                                      :: is, ie, js, je
   integer                                      :: isd, ied, jsd, jed
@@ -110,14 +114,36 @@ subroutine get_grid_version_1(grid_file, mod_name, domain, isc, iec, jsc, jec, l
       call get_variable_size(fileobj, 'x_T', siz(1:ndims))
       nlon = siz(1); nlat = siz(2)
       call check_grid_sizes(trim(mod_name)//'_domain  ', domain, nlon, nlat)
-      allocate(lon_vert(isc:iec,jsc:jec,4), lat_vert(isc:iec,jsc:jec,4) )
+      select type (lon)
+      type is (real(r4_kind))
+         select type (lat)
+         type is (real(r4_kind))
+            allocate(lon_vert_4(isc:iec,jsc:jec,4), lat_vert_4(isc:iec,jsc:jec,4) )
 
-      call read_data(fileobj, 'x_vert_T', lon_vert)
-      call read_data(fileobj, 'y_vert_T', lat_vert)
+            call read_data(fileobj, 'x_vert_T', lon_vert_4)
+            call read_data(fileobj, 'y_vert_T', lat_vert_4)
 
 !2 Global lon and lat of ocean grid cell centers are determined from adjacent vertices
-      lon(:,:) = (lon_vert(:,:,1) + lon_vert(:,:,2) + lon_vert(:,:,3) + lon_vert(:,:,4))*0.25
-      lat(:,:) = (lat_vert(:,:,1) + lat_vert(:,:,2) + lat_vert(:,:,3) + lat_vert(:,:,4))*0.25
+            lon(:,:) = (lon_vert_4(:,:,1) + lon_vert_4(:,:,2) + lon_vert_4(:,:,3) + lon_vert_4(:,:,4))*0.25
+            lat(:,:) = (lat_vert_4(:,:,1) + lat_vert_4(:,:,2) + lat_vert_4(:,:,3) + lat_vert_4(:,:,4))*0.25
+            deallocate(lon_vert_4)
+            deallocate(lat_vert_4)
+         end select
+      type is (real(r8_kind))
+         select type (lat)
+         type is (real(r8_kind))
+            allocate(lon_vert_8(isc:iec,jsc:jec,4), lat_vert_8(isc:iec,jsc:jec,4) )
+
+            call read_data(fileobj, 'x_vert_T', lon_vert_8)
+            call read_data(fileobj, 'y_vert_T', lat_vert_8)
+
+!2 Global lon and lat of ocean grid cell centers are determined from adjacent vertices
+            lon(:,:) = (lon_vert_8(:,:,1) + lon_vert_8(:,:,2) + lon_vert_8(:,:,3) + lon_vert_8(:,:,4))*0.25
+            lat(:,:) = (lat_vert_8(:,:,1) + lat_vert_8(:,:,2) + lat_vert_8(:,:,3) + lat_vert_8(:,:,4))*0.25
+            deallocate(lon_vert_8)
+            deallocate(lat_vert_8)
+         end select
+      end select
     else
 
       if (present(grid_center_bug)) then
@@ -137,59 +163,125 @@ subroutine get_grid_version_1(grid_file, mod_name, domain, isc, iec, jsc, jec, l
       start(1) = isc; nread(1) = iec-isc+2
       start(2) = jsc; nread(2) = jec-jsc+2
 
-      allocate(lon_vert(isc:iec+1,jsc:jec+1,1))
-      allocate(lat_vert(isc:iec+1,jsc:jec+1,1))
+      select type (lon)
+      type is (real(r4_kind))
+         select type (lat)
+         type is (real(r4_kind))
+            allocate(lon_vert_4(isc:iec+1,jsc:jec+1,1))
+            allocate(lat_vert_4(isc:iec+1,jsc:jec+1,1))
 
-      call read_data(fileobj, 'geolon_vert_t', lon_vert(:,:,1), corner=start, edge_lengths=nread)
-      call read_data(fileobj, 'geolat_vert_t', lat_vert(:,:,1), corner=start, edge_lengths=nread)
+            call read_data(fileobj, 'geolon_vert_t', lon_vert_4(:,:,1), corner=start, edge_lengths=nread)
+            call read_data(fileobj, 'geolat_vert_t', lat_vert_4(:,:,1), corner=start, edge_lengths=nread)
 
-      if(gc_bug) then
-         do j = jsc, jec
-            do i = isc, iec
-               lon(i,j) = (lon_vert(i,j,1) + lon_vert(i+1,j,1))/2.
-               lat(i,j) = (lat_vert(i,j,1) + lat_vert(i,j+1,1))/2.
-            enddo
-         enddo
-      else
-         do j = jsc, jec
-            do i = isc, iec
-               lon(i,j) = (lon_vert(i,j,1) + lon_vert(i+1,j,1) + &
-                    lon_vert(i+1,j+1,1) + lon_vert(i,j+1,1))*0.25
-               lat(i,j) = (lat_vert(i,j,1) + lat_vert(i+1,j,1) + &
-                    lat_vert(i+1,j+1,1) + lat_vert(i,j+1,1))*0.25
-            enddo
-         enddo
-      end if
+            if(gc_bug) then
+               do j = jsc, jec
+                  do i = isc, iec
+                     lon(i,j) = (lon_vert_4(i,j,1) + lon_vert_4(i+1,j,1))/2.
+                     lat(i,j) = (lat_vert_4(i,j,1) + lat_vert_4(i,j+1,1))/2.
+                  enddo
+               enddo
+            else
+               do j = jsc, jec
+                  do i = isc, iec
+                     lon(i,j) = (lon_vert_4(i,j,1) + lon_vert_4(i+1,j,1) + &
+                          lon_vert_4(i+1,j+1,1) + lon_vert_4(i,j+1,1))*0.25
+                     lat(i,j) = (lat_vert_4(i,j,1) + lat_vert_4(i+1,j,1) + &
+                          lat_vert_4(i+1,j+1,1) + lat_vert_4(i,j+1,1))*0.25
+                  enddo
+               enddo
+            end if
+            deallocate(lon_vert_4)
+            deallocate(lat_vert_4)
+         end select
+      type is (real(r8_kind))
+         select type (lat)
+         type is (real(r8_kind))
+            allocate(lon_vert_8(isc:iec+1,jsc:jec+1,1))
+            allocate(lat_vert_8(isc:iec+1,jsc:jec+1,1))
+
+            call read_data(fileobj, 'geolon_vert_t', lon_vert_8(:,:,1), corner=start, edge_lengths=nread)
+            call read_data(fileobj, 'geolat_vert_t', lat_vert_8(:,:,1), corner=start, edge_lengths=nread)
+
+            if(gc_bug) then
+               do j = jsc, jec
+                  do i = isc, iec
+                     lon(i,j) = (lon_vert_8(i,j,1) + lon_vert_8(i+1,j,1))/2.
+                     lat(i,j) = (lat_vert_8(i,j,1) + lat_vert_8(i,j+1,1))/2.
+                  enddo
+               enddo
+            else
+               do j = jsc, jec
+                  do i = isc, iec
+                     lon(i,j) = (lon_vert_8(i,j,1) + lon_vert_8(i+1,j,1) + &
+                          lon_vert_8(i+1,j+1,1) + lon_vert_8(i,j+1,1))*0.25
+                     lat(i,j) = (lat_vert_8(i,j,1) + lat_vert_8(i+1,j,1) + &
+                          lat_vert_8(i+1,j+1,1) + lat_vert_8(i,j+1,1))*0.25
+                  enddo
+               enddo
+            end if
+            deallocate(lon_vert_8)
+            deallocate(lat_vert_8)
+         end select
+      end select
     endif
-    deallocate(lon_vert)
-    deallocate(lat_vert)
   case('atm', 'lnd')
      if(trim(mod_name) == 'atm') then
         xname = 'xta'; yname = 'yta'
      else
         xname = 'xtl'; yname = 'ytl'
      endif
-     ndims = get_variable_num_dimensions(fileobj, xname)
-     call get_variable_size(fileobj, xname, siz(1:ndims))
-     nlon = siz(1); allocate(glon(nlon))
-     call read_data(fileobj, xname, glon)
+     select type (lon)
+     type is (real(r4_kind))
+        select type (lat)
+        type is (real(r4_kind))
+           ndims = get_variable_num_dimensions(fileobj, xname)
+           call get_variable_size(fileobj, xname, siz(1:ndims))
+           nlon = siz(1); allocate(glon_4(nlon))
+           call read_data(fileobj, xname, glon_4)
 
-     ndims = get_variable_num_dimensions(fileobj, xname)
-     call get_variable_size(fileobj, yname, siz(1:ndims))
-     nlat = siz(1); allocate(glat(nlat))
-     call read_data(fileobj, yname, glat)
-     call check_grid_sizes(trim(mod_name)//'_domain  ', domain, nlon, nlat)
+           ndims = get_variable_num_dimensions(fileobj, xname)
+           call get_variable_size(fileobj, yname, siz(1:ndims))
+           nlat = siz(1); allocate(glat_4(nlat))
+           call read_data(fileobj, yname, glat_4)
+           call check_grid_sizes(trim(mod_name)//'_domain  ', domain, nlon, nlat)
 
-     is = isc - isg + 1; ie = iec - isg + 1
-     js = jsc - jsg + 1; je = jec - jsg + 1
-     do j = js, jec
-        do i = is, ie
-           lon(i,j) = glon(i)
-           lat(i,j) = glat(j)
-        enddo
-     enddo
-     deallocate(glon)
-     deallocate(glat)
+           is = isc - isg + 1; ie = iec - isg + 1
+           js = jsc - jsg + 1; je = jec - jsg + 1
+           do j = js, jec
+              do i = is, ie
+                 lon(i,j) = glon_4(i)
+                 lat(i,j) = glat_4(j)
+              enddo
+           enddo
+           deallocate(glon_4)
+           deallocate(glat_4)
+        end select
+     type is (real(r8_kind))
+        select type (lat)
+        type is (real(r8_kind))
+           ndims = get_variable_num_dimensions(fileobj, xname)
+           call get_variable_size(fileobj, xname, siz(1:ndims))
+           nlon = siz(1); allocate(glon_8(nlon))
+           call read_data(fileobj, xname, glon_8)
+
+           ndims = get_variable_num_dimensions(fileobj, xname)
+           call get_variable_size(fileobj, yname, siz(1:ndims))
+           nlat = siz(1); allocate(glat_8(nlat))
+           call read_data(fileobj, yname, glat_8)
+           call check_grid_sizes(trim(mod_name)//'_domain  ', domain, nlon, nlat)
+
+           is = isc - isg + 1; ie = iec - isg + 1
+           js = jsc - jsg + 1; je = jec - jsg + 1
+           do j = js, jec
+              do i = is, ie
+                 lon(i,j) = glon_8(i)
+                 lat(i,j) = glat_8(j)
+              enddo
+           enddo
+           deallocate(glon_8)
+           deallocate(glat_8)
+        end select
+     end select
   case default
      call mpp_error(FATAL, "data_override_mod: mod_name should be 'atm', 'ocn', 'ice' or 'lnd' ")
   end select
@@ -197,12 +289,40 @@ subroutine get_grid_version_1(grid_file, mod_name, domain, isc, iec, jsc, jec, l
   call close_file(fileobj)
 
   ! convert from degree to radian
-  lon = lon * deg_to_radian
-  lat = lat* deg_to_radian
-  min_lon = minval(lon)
-  max_lon = maxval(lon)
-  call mpp_min(min_lon)
-  call mpp_max(max_lon)
+  select type (lon)
+  type is (real(r4_kind))
+     select type (lat)
+     type is (real(r4_kind))
+        select type (min_lon)
+        type is (real(r4_kind))
+           select type (max_lon)
+           type is (real(r4_kind))
+              lon = lon * deg_to_radian_4
+              lat = lat * deg_to_radian_4
+              min_lon = minval(lon)
+              max_lon = maxval(lon)
+              call mpp_min(min_lon)
+              call mpp_max(max_lon)
+           end select
+        end select
+     end select
+  type is (real(r8_kind))
+     select type (lat)
+     type is (real(r8_kind))
+        select type (min_lon)
+        type is (real(r8_kind))
+           select type (max_lon)
+           type is (real(r8_kind))
+              lon = lon * deg_to_radian_8
+              lat = lat * deg_to_radian_8
+              min_lon = minval(lon)
+              max_lon = maxval(lon)
+              call mpp_min(min_lon)
+              call mpp_max(max_lon)
+           end select
+        end select
+     end select
+  end select
 
 
 end subroutine get_grid_version_1
@@ -214,8 +334,8 @@ subroutine get_grid_version_2(fileobj, mod_name, domain, isc, iec, jsc, jec, lon
   character(len=*),            intent(in) :: mod_name !< module name
   type(domain2d),              intent(in) :: domain !< 2D domain
   integer,                     intent(in) :: isc, iec, jsc, jec
-  real, dimension(isc:,jsc:), intent(out) :: lon, lat
-  real,                       intent(out) :: min_lon, max_lon
+  class(*), dimension(isc:,jsc:), intent(out) :: lon, lat
+  class(*),                       intent(out) :: min_lon, max_lon
 
   integer            :: i, j, siz(2)
   integer            :: nlon, nlat             ! size of global grid
@@ -224,7 +344,8 @@ subroutine get_grid_version_2(fileobj, mod_name, domain, isc, iec, jsc, jec, lon
   integer            :: isg, ieg, jsg, jeg
   integer            :: isc2, iec2, jsc2, jec2
   character(len=256) :: solo_mosaic_file, grid_file
-  real, allocatable  :: tmpx(:,:), tmpy(:,:)
+  real(r4_type), allocatable  :: tmpx_4(:,:), tmpy_4(:,:)
+  real(r8_type), allocatable  :: tmpx_8(:,:), tmpy_8(:,:)
   type(domain2d)     :: domain2
   logical            :: open_solo_mosaic
   type(FmsNetcdfFile_t) :: mosaicfileobj, tilefileobj
@@ -273,37 +394,89 @@ subroutine get_grid_version_2(fileobj, mod_name, domain, isc, iec, jsc, jec, lon
   start(1) = isc2; nread(1) = iec2-isc2+1
   start(2) = jsc2; nread(2) = jec2-jsc2+1
 
-  allocate(tmpx(isc2:iec2, jsc2:jec2), tmpy(isc2:iec2, jsc2:jec2) )
+  select type (lon)
+  type is (real(r4_kind))
+     select type (lat)
+     type is (real(r4_kind))
+        allocate(tmpx_4(isc2:iec2, jsc2:jec2), tmpy_4(isc2:iec2, jsc2:jec2) )
 
-  call read_data( tilefileobj, 'x', tmpx, corner=start,edge_lengths=nread)
-  call read_data( tilefileobj, 'y', tmpy, corner=start,edge_lengths=nread)
+        call read_data( tilefileobj, 'x', tmpx_4, corner=start,edge_lengths=nread)
+        call read_data( tilefileobj, 'y', tmpy_4, corner=start,edge_lengths=nread)
 
-  ! copy data onto model grid
-  if(trim(mod_name) == 'ocn' .OR. trim(mod_name) == 'ice') then
-     do j = jsc, jec
-        do i = isc, iec
-           lon(i,j) = (tmpx(i*2-1,j*2-1)+tmpx(i*2+1,j*2-1)+tmpx(i*2+1,j*2+1)+tmpx(i*2-1,j*2+1))*0.25
-           lat(i,j) = (tmpy(i*2-1,j*2-1)+tmpy(i*2+1,j*2-1)+tmpy(i*2+1,j*2+1)+tmpy(i*2-1,j*2+1))*0.25
-        end do
-     end do
-  else
-     do j = jsc, jec
-        do i = isc, iec
-           lon(i,j) = tmpx(i*2,j*2)
-           lat(i,j) = tmpy(i*2,j*2)
-        end do
-     end do
-  endif
+        ! copy data onto model grid
+        if(trim(mod_name) == 'ocn' .OR. trim(mod_name) == 'ice') then
+           do j = jsc, jec
+              do i = isc, iec
+                 lon(i,j) = (tmpx_4(i*2-1,j*2-1)+tmpx_4(i*2+1,j*2-1)+tmpx_4(i*2+1,j*2+1)+tmpx_4(i*2-1,j*2+1))*0.25
+                 lat(i,j) = (tmpy_4(i*2-1,j*2-1)+tmpy_4(i*2+1,j*2-1)+tmpy_4(i*2+1,j*2+1)+tmpy_4(i*2-1,j*2+1))*0.25
+              end do
+           end do
+        else
+           do j = jsc, jec
+              do i = isc, iec
+                 lon(i,j) = tmpx_4(i*2,j*2)
+                 lat(i,j) = tmpy_4(i*2,j*2)
+              end do
+           end do
+        endif
 
-  ! convert to radian
-  lon = lon * deg_to_radian
-  lat = lat * deg_to_radian
+        ! convert to radian
+        lon = lon * deg_to_radian_4
+        lat = lat * deg_to_radian_4
 
-  deallocate(tmpx, tmpy)
-  min_lon = minval(lon)
-  max_lon = maxval(lon)
-  call mpp_min(min_lon)
-  call mpp_max(max_lon)
+        deallocate(tmpx_4, tmpy_4)
+        select type (min_lon)
+        type is (real(r4_kind))
+           select type (max_lon)
+           type is (real(r4_kind))
+              min_lon = minval(lon)
+              max_lon = maxval(lon)
+              call mpp_min(min_lon)
+              call mpp_max(max_lon)
+           end type
+        end type
+     end type
+  type is (real(r8_kind))
+     select type (lat)
+     type is (real(r8_kind))
+        allocate(tmpx_8(isc2:iec2, jsc2:jec2), tmpy_8(isc2:iec2, jsc2:jec2) )
+
+        call read_data( tilefileobj, 'x', tmpx_8, corner=start,edge_lengths=nread)
+        call read_data( tilefileobj, 'y', tmpy_8, corner=start,edge_lengths=nread)
+
+        ! copy data onto model grid
+        if(trim(mod_name) == 'ocn' .OR. trim(mod_name) == 'ice') then
+           do j = jsc, jec
+              do i = isc, iec
+                 lon(i,j) = (tmpx_8(i*2-1,j*2-1)+tmpx_8(i*2+1,j*2-1)+tmpx_8(i*2+1,j*2+1)+tmpx_8(i*2-1,j*2+1))*0.25
+                 lat(i,j) = (tmpy_8(i*2-1,j*2-1)+tmpy_8(i*2+1,j*2-1)+tmpy_8(i*2+1,j*2+1)+tmpy_8(i*2-1,j*2+1))*0.25
+              end do
+           end do
+        else
+           do j = jsc, jec
+              do i = isc, iec
+                 lon(i,j) = tmpx_8(i*2,j*2)
+                 lat(i,j) = tmpy_8(i*2,j*2)
+              end do
+           end do
+        endif
+
+        ! convert to radian
+        lon = lon * deg_to_radian_8
+        lat = lat * deg_to_radian_8
+
+        deallocate(tmpx_8, tmpy_8)
+        select type (min_lon)
+        type is (real(r8_kind))
+           select type (max_lon)
+           type is (real(r8_kind))
+              min_lon = minval(lon)
+              max_lon = maxval(lon)
+              call mpp_min(min_lon)
+              call mpp_max(max_lon)
+           end type
+        end type
+     end type
 
   call close_file(tilefileobj)
   if(open_solo_mosaic)  call close_file(mosaicfileobj)
