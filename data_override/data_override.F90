@@ -128,7 +128,8 @@ end interface
 !> @addtogroup data_override_mod
 !> @{
  integer, parameter :: max_table=100, max_array=100
- real, parameter    :: deg_to_radian=PI/180.
+ real(r4_kind), parameter    :: deg_to_radian_r4=PI/180.
+ real(r8_kind), parameter    :: deg_to_radian_r8=PI/180.
  integer            :: table_size !< actual size of data table
  logical            :: module_is_initialized = .FALSE.
 
@@ -613,32 +614,40 @@ subroutine data_override_unset_domains(unset_Atm, unset_Ocean, &
       "data_override_unset_domains attempted to work on an Atm_domain that had not been set.")
     atm_domain = NULL_DOMAIN2D
     atm_on = .false.
-    if (allocated(lon_local_atm)) deallocate(lon_local_atm)
-    if (allocated(lat_local_atm)) deallocate(lat_local_atm)
+    if (allocated(lon_local_atm_4)) deallocate(lon_local_atm_4)
+    if (allocated(lat_local_atm_4)) deallocate(lat_local_atm_4)
+    if (allocated(lon_local_atm_8)) deallocate(lon_local_atm_8)
+    if (allocated(lat_local_atm_8)) deallocate(lat_local_atm_8)
   endif ; endif
   if (PRESENT(unset_Ocean)) then ; if (unset_Ocean) then
     if (fail_if_not_set .and. .not.ocn_on) call mpp_error(FATAL, &
       "data_override_unset_domains attempted to work on an Ocn_domain that had not been set.")
     ocn_domain = NULL_DOMAIN2D
     ocn_on = .false.
-    if (allocated(lon_local_ocn)) deallocate(lon_local_ocn)
-    if (allocated(lat_local_ocn)) deallocate(lat_local_ocn)
+    if (allocated(lon_local_ocn_4)) deallocate(lon_local_ocn_4)
+    if (allocated(lat_local_ocn_4)) deallocate(lat_local_ocn_4)
+    if (allocated(lon_local_ocn_8)) deallocate(lon_local_ocn_8)
+    if (allocated(lat_local_ocn_8)) deallocate(lat_local_ocn_8)
   endif ; endif
   if (PRESENT(unset_Land)) then ; if (unset_Land) then
     if (fail_if_not_set .and. .not.lnd_on) call mpp_error(FATAL, &
       "data_override_unset_domains attempted to work on a Land_domain that had not been set.")
     lnd_domain = NULL_DOMAIN2D
     lnd_on = .false.
-    if (allocated(lon_local_lnd)) deallocate(lon_local_lnd)
-    if (allocated(lat_local_lnd)) deallocate(lat_local_lnd)
+    if (allocated(lon_local_lnd_4)) deallocate(lon_local_lnd_4)
+    if (allocated(lat_local_lnd_4)) deallocate(lat_local_lnd_4)
+    if (allocated(lon_local_lnd_8)) deallocate(lon_local_lnd_8)
+    if (allocated(lat_local_lnd_8)) deallocate(lat_local_lnd_8)
   endif ; endif
   if (PRESENT(unset_Ice)) then ; if (unset_Ice) then
     if (fail_if_not_set .and. .not.ice_on) call mpp_error(FATAL, &
       "data_override_unset_domains attempted to work on an Ice_domain that had not been set.")
     ice_domain = NULL_DOMAIN2D
     ice_on = .false.
-    if (allocated(lon_local_ice)) deallocate(lon_local_ice)
-    if (allocated(lat_local_ice)) deallocate(lat_local_ice)
+    if (allocated(lon_local_ice_4)) deallocate(lon_local_ice_4)
+    if (allocated(lat_local_ice_4)) deallocate(lat_local_ice_4)
+    if (allocated(lon_local_ice_8)) deallocate(lon_local_ice_8)
+    if (allocated(lat_local_ice_8)) deallocate(lat_local_ice_8)
   endif ; endif
 
 end subroutine data_override_unset_domains
@@ -809,10 +818,20 @@ subroutine data_override_3d(gridname,fieldname_code,data,time,override,data_inde
   endif
 
   fieldname = data_table(index1)%fieldname_file ! fieldname in netCDF data file
-  factor = data_table(index1)%factor
+  select type (data)
+  type is (real(r4_kind))
+     factor_4 = data_table(index1)%factor_4
+  type is (real(r8_kind))
+     factor_8 = data_table(index1)%factor_8
+  end select
 
   if(fieldname == "") then
-     data = factor
+     select type (data)
+     type is (real(r4_kind))
+        data = factor_4
+     type is (real(r8_kind))
+        data = factor_8
+     end select
      if(PRESENT(override)) override = .true.
      return
   else
@@ -911,52 +930,102 @@ subroutine data_override_3d(gridname,fieldname_code,data,time,override,data_inde
         !  get lon and lat of the input (source) grid, assuming that axis%data contains
         !  lat and lon of the input grid (in degrees)
 
-        allocate(override_array(curr_position)%horz_interp(nwindows))
-        allocate(override_array(curr_position)%lon_in(axis_sizes(1)+1))
-        allocate(override_array(curr_position)%lat_in(axis_sizes(2)+1))
-        if(get_external_fileobj(filename, fileobj)) then
-           call axis_edges(fileobj, axis_names(1), override_array(curr_position)%lon_in, &
-              reproduce_null_char_bug_flag=reproduce_null_char_bug)
-           call axis_edges(fileobj, axis_names(2), override_array(curr_position)%lat_in, &
-              reproduce_null_char_bug_flag=reproduce_null_char_bug)
-        else
-           call mpp_error(FATAL,'data_override: file '//trim(filename)//' is not opened in time_interp_external')
-        end if
+        select type (data)
+        type is (real(r4_kind))
+           allocate(override_array(curr_position)%horz_interp(nwindows))
+           allocate(override_array(curr_position)%lon_in_r4(axis_sizes(1)+1))
+           allocate(override_array(curr_position)%lat_in_r4(axis_sizes(2)+1))
+           if(get_external_fileobj(filename, fileobj)) then
+              call axis_edges(fileobj, axis_names(1), override_array(curr_position)%lon_in_r4, &
+                 reproduce_null_char_bug_flag=reproduce_null_char_bug)
+              call axis_edges(fileobj, axis_names(2), override_array(curr_position)%lat_in_r4, &
+                 reproduce_null_char_bug_flag=reproduce_null_char_bug)
+           else
+              call mpp_error(FATAL,'data_override: file '//trim(filename)//' is not opened in time_interp_external')
+           end if
 ! convert lon_in and lat_in from deg to radian
-        override_array(curr_position)%lon_in = override_array(curr_position)%lon_in * deg_to_radian
-        override_array(curr_position)%lat_in = override_array(curr_position)%lat_in * deg_to_radian
+           override_array(curr_position)%lon_in_r4 = override_array(curr_position)%lon_in_r4 * deg_to_radian_r4
+           override_array(curr_position)%lat_in_r4 = override_array(curr_position)%lat_in_r4 * deg_to_radian_r4
 
-        !--- find the region of the source grid that cover the local model grid.
-        !--- currently we only find the index range for j-direction because
-        !--- of the cyclic condition in i-direction. The purpose of this is to
-        !--- decrease the memory usage and increase the IO performance.
-        select case(gridname)
-        case('OCN')
-           lon_local => lon_local_ocn; lat_local => lat_local_ocn
-        case('ICE')
-           lon_local => lon_local_ice; lat_local => lat_local_ice
-        case('ATM')
-           lon_local => lon_local_atm; lat_local => lat_local_atm
-        case('LND')
-           lon_local => lon_local_lnd; lat_local => lat_local_lnd
-        case default
-           call mpp_error(FATAL,'error: gridname not recognized in data_override')
+           !--- find the region of the source grid that cover the local model grid.
+           !--- currently we only find the index range for j-direction because
+           !--- of the cyclic condition in i-direction. The purpose of this is to
+           !--- decrease the memory usage and increase the IO performance.
+           select case(gridname)
+           case('OCN')
+              lon_local_4 => lon_local_ocn_4; lat_local_4 => lat_local_ocn_4
+           case('ICE')
+              lon_local_4 => lon_local_ice_4; lat_local_4 => lat_local_ice_4
+           case('ATM')
+              lon_local_4 => lon_local_atm_4; lat_local_4 => lat_local_atm_4
+           case('LND')
+              lon_local_4 => lon_local_lnd_4; lat_local_4 => lat_local_lnd_4
+           case default
+              call mpp_error(FATAL,'error: gridname not recognized in data_override')
+           end select
+
+           lat_min_4 = minval(lat_local_4)
+           lat_max_4 = maxval(lat_local_4)
+           is_src = 1
+           ie_src = axis_sizes(1)
+           js_src = 1
+           je_src = axis_sizes(2)
+           do j = 1, axis_sizes(2)+1
+              if( override_array(curr_position)%lat_in_4(j) > lat_min_4 ) exit
+              js_src = j
+           enddo
+           do j = 1, axis_sizes(2)+1
+              je_src = j
+              if( override_array(curr_position)%lat_in_4(j) > lat_max_4 ) exit
+           enddo
+        type is (real(r8_kind))
+           allocate(override_array(curr_position)%horz_interp(nwindows))
+           allocate(override_array(curr_position)%lon_in_r8(axis_sizes(1)+1))
+           allocate(override_array(curr_position)%lat_in_r8(axis_sizes(2)+1))
+           if(get_external_fileobj(filename, fileobj)) then
+              call axis_edges(fileobj, axis_names(1), override_array(curr_position)%lon_in_r8, &
+                 reproduce_null_char_bug_flag=reproduce_null_char_bug)
+              call axis_edges(fileobj, axis_names(2), override_array(curr_position)%lat_in_r8, &
+                 reproduce_null_char_bug_flag=reproduce_null_char_bug)
+           else
+              call mpp_error(FATAL,'data_override: file '//trim(filename)//' is not opened in time_interp_external')
+           end if
+! convert lon_in and lat_in from deg to radian
+           override_array(curr_position)%lon_in_r8 = override_array(curr_position)%lon_in_r8 * deg_to_radian_r8
+           override_array(curr_position)%lat_in_r8 = override_array(curr_position)%lat_in_r8 * deg_to_radian_r8
+
+           !--- find the region of the source grid that cover the local model grid.
+           !--- currently we only find the index range for j-direction because
+           !--- of the cyclic condition in i-direction. The purpose of this is to
+           !--- decrease the memory usage and increase the IO performance.
+           select case(gridname)
+           case('OCN')
+              lon_local_8 => lon_local_ocn_8; lat_local_8 => lat_local_ocn_8
+           case('ICE')
+              lon_local_8 => lon_local_ice_8; lat_local_8 => lat_local_ice_8
+           case('ATM')
+              lon_local_8 => lon_local_atm_8; lat_local_8 => lat_local_atm_8
+           case('LND')
+              lon_local_8 => lon_local_lnd_8; lat_local_8 => lat_local_lnd_8
+           case default
+              call mpp_error(FATAL,'error: gridname not recognized in data_override')
+           end select
+
+           lat_min_8 = minval(lat_local_8)
+           lat_max_8 = maxval(lat_local_8)
+           is_src = 1
+           ie_src = axis_sizes(1)
+           js_src = 1
+           je_src = axis_sizes(2)
+           do j = 1, axis_sizes(2)+1
+              if( override_array(curr_position)%lat_in_8(j) > lat_min_8 ) exit
+              js_src = j
+           enddo
+           do j = 1, axis_sizes(2)+1
+              je_src = j
+              if( override_array(curr_position)%lat_in_8(j) > lat_max_8 ) exit
+           enddo
         end select
-
-        lat_min = minval(lat_local)
-        lat_max = maxval(lat_local)
-        is_src = 1
-        ie_src = axis_sizes(1)
-        js_src = 1
-        je_src = axis_sizes(2)
-        do j = 1, axis_sizes(2)+1
-           if( override_array(curr_position)%lat_in(j) > lat_min ) exit
-           js_src = j
-        enddo
-        do j = 1, axis_sizes(2)+1
-           je_src = j
-           if( override_array(curr_position)%lat_in(j) > lat_max ) exit
-        enddo
 
         !--- bicubic interpolation need one extra point in each direction. Also add
         !--- one more point for because lat_in is in the corner but the interpolation
@@ -976,33 +1045,62 @@ subroutine data_override_3d(gridname,fieldname_code,data,time,override,data_inde
         call reset_src_data_region(id_time, is_src, ie_src, js_src, je_src)
 
 !       Find the index of lon_start, lon_end, lat_start and lat_end in the input grid (nearest points)
-        if( data_table(index1)%region_type .NE. NO_REGION ) then
-           allocate( lon_tmp(axis_sizes(1)), lat_tmp(axis_sizes(2)) )
-           call read_data(fileobj, axis_names(1), lon_tmp)
-           call read_data(fileobj, axis_names(2), lat_tmp)
-           ! limit lon_start, lon_end are inside lon_in
-           !       lat_start, lat_end are inside lat_in
-           if( data_table(index1)%lon_start < lon_tmp(1) .OR. data_table(index1)%lon_start .GT. lon_tmp(axis_sizes(1))) &
-              call mpp_error(FATAL, "data_override: lon_start is outside lon_T")
-           if( data_table(index1)%lon_end < lon_tmp(1) .OR. data_table(index1)%lon_end .GT. lon_tmp(axis_sizes(1))) &
-              call mpp_error(FATAL, "data_override: lon_end is outside lon_T")
-           if( data_table(index1)%lat_start < lat_tmp(1) .OR. data_table(index1)%lat_start .GT. lat_tmp(axis_sizes(2))) &
-              call mpp_error(FATAL, "data_override: lat_start is outside lat_T")
-           if( data_table(index1)%lat_end < lat_tmp(1) .OR. data_table(index1)%lat_end .GT. lat_tmp(axis_sizes(2))) &
-              call mpp_error(FATAL, "data_override: lat_end is outside lat_T")
-           istart = nearest_index(data_table(index1)%lon_start, lon_tmp)
-           iend   = nearest_index(data_table(index1)%lon_end,   lon_tmp)
-           jstart = nearest_index(data_table(index1)%lat_start, lat_tmp)
-           jend   = nearest_index(data_table(index1)%lat_end,   lat_tmp)
-           ! adjust the index according to is_src and js_src
-           istart = istart - is_src + 1
-           iend   = iend   - is_src + 1
-           jstart = jstart - js_src + 1
-           jend   = jend   - js_src + 1
-           call set_override_region(id_time, data_table(index1)%region_type, istart, iend, jstart, jend)
-           deallocate(lon_tmp, lat_tmp)
-        endif
-
+        select type (data)
+        type is (real(r4_kind))
+           if( data_table(index1)%region_type .NE. NO_REGION ) then
+              allocate( lon_tmp_4(axis_sizes(1)), lat_tmp_4(axis_sizes(2)) )
+              call read_data(fileobj, axis_names(1), lon_tmp_4)
+              call read_data(fileobj, axis_names(2), lat_tmp_4)
+              ! limit lon_start, lon_end are inside lon_in
+              !       lat_start, lat_end are inside lat_in
+              if( data_table(index1)%lon_start_r4 < lon_tmp_4(1) .OR. data_table(index1)%lon_start_r4 .GT. lon_tmp_4(axis_sizes(1))) &
+                 call mpp_error(FATAL, "data_override: lon_start is outside lon_T")
+              if( data_table(index1)%lon_end_r4 < lon_tmp_4(1) .OR. data_table(index1)%lon_end_r4 .GT. lon_tmp_4(axis_sizes(1))) &
+                 call mpp_error(FATAL, "data_override: lon_end is outside lon_T")
+              if( data_table(index1)%lat_start_r4 < lat_tmp_4(1) .OR. data_table(index1)%lat_start_r4 .GT. lat_tmp_4(axis_sizes(2))) &
+                 call mpp_error(FATAL, "data_override: lat_start is outside lat_T")
+              if( data_table(index1)%lat_end_r4 < lat_tmp_4(1) .OR. data_table(index1)%lat_end_r4 .GT. lat_tmp_4(axis_sizes(2))) &
+                 call mpp_error(FATAL, "data_override: lat_end is outside lat_T")
+              istart = nearest_index(data_table(index1)%lon_start_r4, lon_tmp_4)
+              iend   = nearest_index(data_table(index1)%lon_end_r4,   lon_tmp_4)
+              jstart = nearest_index(data_table(index1)%lat_start_r4, lat_tmp_4)
+              jend   = nearest_index(data_table(index1)%lat_end_r4,   lat_tmp_4)
+              ! adjust the index according to is_src and js_src
+              istart = istart - is_src + 1
+              iend   = iend   - is_src + 1
+              jstart = jstart - js_src + 1
+              jend   = jend   - js_src + 1
+              call set_override_region(id_time, data_table(index1)%region_type, istart, iend, jstart, jend)
+              deallocate(lon_tmp_4, lat_tmp_4)
+           endif
+        type is (real(r8_kind))
+           if( data_table(index1)%region_type .NE. NO_REGION ) then
+              allocate( lon_tmp_8(axis_sizes(1)), lat_tmp_8(axis_sizes(2)) )
+              call read_data(fileobj, axis_names(1), lon_tmp_8)
+              call read_data(fileobj, axis_names(2), lat_tmp_8)
+              ! limit lon_start, lon_end are inside lon_in
+              !       lat_start, lat_end are inside lat_in
+              if( data_table(index1)%lon_start_r8 < lon_tmp_8(1) .OR. data_table(index1)%lon_start_r8 .GT. lon_tmp_8(axis_sizes(1))) &
+                 call mpp_error(FATAL, "data_override: lon_start is outside lon_T")
+              if( data_table(index1)%lon_end_r8 < lon_tmp_8(1) .OR. data_table(index1)%lon_end_r8 .GT. lon_tmp_8(axis_sizes(1))) &
+                 call mpp_error(FATAL, "data_override: lon_end is outside lon_T")
+              if( data_table(index1)%lat_start_r8 < lat_tmp_8(1) .OR. data_table(index1)%lat_start_r8 .GT. lat_tmp_8(axis_sizes(2))) &
+                 call mpp_error(FATAL, "data_override: lat_start is outside lat_T")
+              if( data_table(index1)%lat_end_r8 < lat_tmp_8(1) .OR. data_table(index1)%lat_end_r8 .GT. lat_tmp_8(axis_sizes(2))) &
+                 call mpp_error(FATAL, "data_override: lat_end is outside lat_T")
+              istart = nearest_index(data_table(index1)%lon_start_r8, lon_tmp_8)
+              iend   = nearest_index(data_table(index1)%lon_end_r8,   lon_tmp_8)
+              jstart = nearest_index(data_table(index1)%lat_start_r8, lat_tmp_8)
+              jend   = nearest_index(data_table(index1)%lat_end_r8,   lat_tmp_8)
+              ! adjust the index according to is_src and js_src
+              istart = istart - is_src + 1
+              iend   = iend   - is_src + 1
+              jstart = jstart - js_src + 1
+              jend   = jend   - js_src + 1
+              call set_override_region(id_time, data_table(index1)%region_type, istart, iend, jstart, jend)
+              deallocate(lon_tmp_8, lat_tmp_8)
+           endif
+        end select
      endif
   else !curr_position >0
      dims = override_array(curr_position)%dims
@@ -1057,30 +1155,59 @@ subroutine data_override_3d(gridname,fieldname_code,data,time,override,data_inde
   !--- call horiz_interp_new is not initialized
 
   if( need_compute ) then
-     select case(gridname)
-     case('OCN')
-        lon_local => lon_local_ocn; lat_local => lat_local_ocn
-     case('ICE')
-        lon_local => lon_local_ice; lat_local => lat_local_ice
-     case('ATM')
-        lon_local => lon_local_atm; lat_local => lat_local_atm
-     case('LND')
-        lon_local => lon_local_lnd; lat_local => lat_local_lnd
-     case default
-        call mpp_error(FATAL,'error: gridname not recognized in data_override')
-     end select
+     select type (data)
+     type is (real(r4_kind))
+        select case(gridname)
+        case('OCN')
+           lon_local_4 => lon_local_ocn_4; lat_local_4 => lat_local_ocn_4
+        case('ICE')
+           lon_local_4 => lon_local_ice_4; lat_local_4 => lat_local_ice_4
+        case('ATM')
+           lon_local_4 => lon_local_atm_4; lat_local_4 => lat_local_atm_4
+        case('LND')
+           lon_local_4 => lon_local_lnd_4; lat_local_4 => lat_local_lnd_4
+        case default
+           call mpp_error(FATAL,'error: gridname not recognized in data_override')
+        end select
 
-     select case (data_table(index1)%interpol_method)
-     case ('bilinear')
-        call horiz_interp_new (override_array(curr_position)%horz_interp(window_id), &
-             override_array(curr_position)%lon_in(is_src:ie_src+1),                  &
-             override_array(curr_position)%lat_in(js_src:je_src+1),                  &
-             lon_local(isw:iew,jsw:jew), lat_local(isw:iew,jsw:jew), interp_method="bilinear")
-     case ('bicubic')
-        call horiz_interp_new (override_array(curr_position)%horz_interp(window_id), &
-             override_array(curr_position)%lon_in(is_src:ie_src+1),                  &
-             override_array(curr_position)%lat_in(js_src:je_src+1),                  &
-             lon_local(isw:iew,jsw:jew), lat_local(isw:iew,jsw:jew), interp_method="bicubic")
+        select case (data_table(index1)%interpol_method)
+        case ('bilinear')
+           call horiz_interp_new (override_array(curr_position)%horz_interp(window_id),    &
+                override_array(curr_position)%lon_in_r4(is_src:ie_src+1),                  &
+                override_array(curr_position)%lat_in_r4(js_src:je_src+1),                  &
+                lon_local_4(isw:iew,jsw:jew), lat_local_4(isw:iew,jsw:jew), interp_method="bilinear")
+        case ('bicubic')
+           call horiz_interp_new (override_array(curr_position)%horz_interp(window_id),    &
+                override_array(curr_position)%lon_in_r4(is_src:ie_src+1),                  &
+                override_array(curr_position)%lat_in_r4(js_src:je_src+1),                  &
+                lon_local_4(isw:iew,jsw:jew), lat_local_4(isw:iew,jsw:jew), interp_method="bicubic")
+        end select
+     type is (real(r8_kind))
+        select case(gridname)
+        case('OCN')
+           lon_local_8 => lon_local_ocn_8; lat_local_8 => lat_local_ocn_8
+        case('ICE')
+           lon_local_8 => lon_local_ice_8; lat_local_8 => lat_local_ice_8
+        case('ATM')
+           lon_local_8 => lon_local_atm_8; lat_local_8 => lat_local_atm_8
+        case('LND')
+           lon_local_8 => lon_local_lnd_8; lat_local_8 => lat_local_lnd_8
+        case default
+           call mpp_error(FATAL,'error: gridname not recognized in data_override')
+        end select
+
+        select case (data_table(index1)%interpol_method)
+        case ('bilinear')
+           call horiz_interp_new (override_array(curr_position)%horz_interp(window_id),    &
+                override_array(curr_position)%lon_in_r8(is_src:ie_src+1),                  &
+                override_array(curr_position)%lat_in_r8(js_src:je_src+1),                  &
+                lon_local_8(isw:iew,jsw:jew), lat_local_8(isw:iew,jsw:jew), interp_method="bilinear")
+        case ('bicubic')
+           call horiz_interp_new (override_array(curr_position)%horz_interp(window_id),    &
+                override_array(curr_position)%lon_in_r8(is_src:ie_src+1),                  &
+                override_array(curr_position)%lat_in_r8(js_src:je_src+1),                  &
+                lon_local_8(isw:iew,jsw:jew), lat_local_8(isw:iew,jsw:jew), interp_method="bicubic")
+        end select
      end select
      override_array(curr_position)%need_compute(window_id) = .false.
   endif
@@ -1104,80 +1231,113 @@ subroutine data_override_3d(gridname,fieldname_code,data,time,override,data_inde
     end if
 
 !10 do time interp to get data in compute_domain
-    if(data_file_is_2D) then
-      if (use_comp_domain) then
-        call time_interp_external(id_time,time,data(:,:,1),verbose=.false., &
+    select type (data)
+    type is (real(r4_kind))
+       if(data_file_is_2D) then
+         if (use_comp_domain) then
+           call time_interp_external(id_time,time,data(:,:,1),verbose=.false., &
+                                     is_in=is_in,ie_in=ie_in,js_in=js_in,je_in=je_in,window_id=window_id)
+         else
+           !> If this in an ongrid case and you are not in the compute domain, send in `data` to be the correct
+           !! size
+           call time_interp_external(id_time,time,data(startingi:endingi,startingj:endingj,1),verbose=.false., &
                                   is_in=is_in,ie_in=ie_in,js_in=js_in,je_in=je_in,window_id=window_id)
-      else
-        !> If this in an ongrid case and you are not in the compute domain, send in `data` to be the correct
-        !! size
-        call time_interp_external(id_time,time,data(startingi:endingi,startingj:endingj,1),verbose=.false., &
-                               is_in=is_in,ie_in=ie_in,js_in=js_in,je_in=je_in,window_id=window_id)
-      end if
-      data(:,:,1) = data(:,:,1)*factor
-      do i = 2, size(data,3)
-        data(:,:,i) = data(:,:,1)
-      end do
-    else
-      if (use_comp_domain) then
-        call time_interp_external(id_time,time,data,verbose=.false., &
+         end if
+         data(:,:,1) = data(:,:,1)*factor_4
+         do i = 2, size(data,3)
+           data(:,:,i) = data(:,:,1)
+         end do
+       else
+         if (use_comp_domain) then
+           call time_interp_external(id_time,time,data,verbose=.false., &
+                                     is_in=is_in,ie_in=ie_in,js_in=js_in,je_in=je_in,window_id=window_id)
+         else
+           !> If this in an ongrid case and you are not in the compute domain, send in `data` to be the correct
+           !! size
+           call time_interp_external(id_time,time,data(startingi:endingi,startingj:endingj,:),verbose=.false., &
                                   is_in=is_in,ie_in=ie_in,js_in=js_in,je_in=je_in,window_id=window_id)
-      else
-        !> If this in an ongrid case and you are not in the compute domain, send in `data` to be the correct
-        !! size
-        call time_interp_external(id_time,time,data(startingi:endingi,startingj:endingj,:),verbose=.false., &
-                               is_in=is_in,ie_in=ie_in,js_in=js_in,je_in=je_in,window_id=window_id)
-      end if
-      data = data*factor
-    endif
+         end if
+         data = data*factor_4
+       endif
+    type is (real(r8_kind))
+       if(data_file_is_2D) then
+         if (use_comp_domain) then
+           call time_interp_external(id_time,time,data(:,:,1),verbose=.false., &
+                                     is_in=is_in,ie_in=ie_in,js_in=js_in,je_in=je_in,window_id=window_id)
+         else
+           !> If this in an ongrid case and you are not in the compute domain, send in `data` to be the correct
+           !! size
+           call time_interp_external(id_time,time,data(startingi:endingi,startingj:endingj,1),verbose=.false., &
+                                  is_in=is_in,ie_in=ie_in,js_in=js_in,je_in=je_in,window_id=window_id)
+         end if
+         data(:,:,1) = data(:,:,1)*factor_8
+         do i = 2, size(data,3)
+           data(:,:,i) = data(:,:,1)
+         end do
+       else
+         if (use_comp_domain) then
+           call time_interp_external(id_time,time,data,verbose=.false., &
+                                     is_in=is_in,ie_in=ie_in,js_in=js_in,je_in=je_in,window_id=window_id)
+         else
+           !> If this in an ongrid case and you are not in the compute domain, send in `data` to be the correct
+           !! size
+           call time_interp_external(id_time,time,data(startingi:endingi,startingj:endingj,:),verbose=.false., &
+                                  is_in=is_in,ie_in=ie_in,js_in=js_in,je_in=je_in,window_id=window_id)
+         end if
+         data = data*factor_8
+       endif
+    end select
   else  ! off grid case
 ! do time interp to get global data
-     if(data_file_is_2D) then
-        if( data_table(index1)%region_type == NO_REGION ) then
-           call time_interp_external(id_time,time,data(:,:,1),verbose=.false., &
+     select type (data)
+     type is (real(r4_kind))
+        if(data_file_is_2D) then
+           if( data_table(index1)%region_type == NO_REGION ) then
+              call time_interp_external(id_time,time,data(:,:,1),verbose=.false., &
+                    horz_interp=override_array(curr_position)%horz_interp(window_id), &
+                    is_in=is_in,ie_in=ie_in,js_in=js_in,je_in=je_in,window_id=window_id)
+              data(:,:,1) = data(:,:,1)*factor_4
+              do i = 2, size(data,3)
+                data(:,:,i) = data(:,:,1)
+              enddo
+           else
+              allocate(mask_out(size(data,1), size(data,2),1))
+              mask_out = .false.
+              call time_interp_external(id_time,time,data(:,:,1),verbose=.false., &
+                    horz_interp=override_array(curr_position)%horz_interp(window_id),      &
+                    mask_out   =mask_out(:,:,1), &
+                    is_in=is_in,ie_in=ie_in,js_in=js_in,je_in=je_in,window_id=window_id)
+              where(mask_out(:,:,1))
+                 data(:,:,1) = data(:,:,1)*factor_4
+              end where
+              do i = 2, size(data,3)
+                 where(mask_out(:,:,1))
+                   data(:,:,i) = data(:,:,1)
+                 end where
+              enddo
+              deallocate(mask_out)
+           endif
+        else
+           if( data_table(index1)%region_type == NO_REGION ) then
+              call time_interp_external(id_time,time,data,verbose=.false.,      &
                  horz_interp=override_array(curr_position)%horz_interp(window_id), &
                  is_in=is_in,ie_in=ie_in,js_in=js_in,je_in=je_in,window_id=window_id)
-           data(:,:,1) = data(:,:,1)*factor
-           do i = 2, size(data,3)
-             data(:,:,i) = data(:,:,1)
-           enddo
-        else
-           allocate(mask_out(size(data,1), size(data,2),1))
-           mask_out = .false.
-           call time_interp_external(id_time,time,data(:,:,1),verbose=.false., &
-                 horz_interp=override_array(curr_position)%horz_interp(window_id),      &
-                 mask_out   =mask_out(:,:,1), &
+              data = data*factor_8
+           else
+              allocate(mask_out(size(data,1), size(data,2), size(data,3)) )
+              mask_out = .false.
+              call time_interp_external(id_time,time,data,verbose=.false.,      &
+                 horz_interp=override_array(curr_position)%horz_interp(window_id),    &
+                 mask_out   =mask_out, &
                  is_in=is_in,ie_in=ie_in,js_in=js_in,je_in=je_in,window_id=window_id)
-           where(mask_out(:,:,1))
-              data(:,:,1) = data(:,:,1)*factor
-           end where
-           do i = 2, size(data,3)
-              where(mask_out(:,:,1))
-                data(:,:,i) = data(:,:,1)
+              where(mask_out)
+                 data = data*factor_8
               end where
-           enddo
-           deallocate(mask_out)
+              deallocate(mask_out)
+           endif
         endif
-     else
-        if( data_table(index1)%region_type == NO_REGION ) then
-           call time_interp_external(id_time,time,data,verbose=.false.,      &
-              horz_interp=override_array(curr_position)%horz_interp(window_id), &
-              is_in=is_in,ie_in=ie_in,js_in=js_in,je_in=je_in,window_id=window_id)
-           data = data*factor
-        else
-           allocate(mask_out(size(data,1), size(data,2), size(data,3)) )
-           mask_out = .false.
-           call time_interp_external(id_time,time,data,verbose=.false.,      &
-              horz_interp=override_array(curr_position)%horz_interp(window_id),    &
-              mask_out   =mask_out, &
-              is_in=is_in,ie_in=ie_in,js_in=js_in,je_in=je_in,window_id=window_id)
-           where(mask_out)
-              data = data*factor
-           end where
-           deallocate(mask_out)
-        endif
-     endif
-
+     type is (real(r8_kind))
+     end select
   endif
 
   if(PRESENT(override)) override = .true.
@@ -1291,11 +1451,12 @@ end subroutine data_override_0d
 subroutine data_override_UG_1d(gridname,fieldname,data,time,override)
   character(len=3),   intent(in) :: gridname !< model grid ID
   character(len=*),   intent(in) :: fieldname !< field to override
-  real, dimension(:), intent(inout) :: data !< data returned by this call
+  class(*), dimension(:), intent(inout) :: data !< data returned by this call
   type(time_type),    intent(in) :: time !<  model time
   logical, intent(out), optional :: override !< true if the field has been overriden succesfully
   !local vars
-  real, dimension(:,:), allocatable ::  data_SG
+  real(r4_kind), dimension(:,:), allocatable ::  data_SG_4
+  real(r8_kind), dimension(:,:), allocatable ::  data_SG_8
   type(domainUG) :: UG_domain
   integer       :: index1
   integer       :: i
@@ -1313,13 +1474,19 @@ subroutine data_override_UG_1d(gridname,fieldname,data,time,override)
   if(index1 .eq. -1) return  ! NO override was performed
 
   call get_domainUG(gridname,UG_domain,comp_domain)
-  allocate(data_SG(comp_domain(1):comp_domain(2),comp_domain(3):comp_domain(4)))
 
-  call data_override_2d(gridname,fieldname,data_SG,time,override)
-
-  call mpp_pass_SG_to_UG(UG_domain, data_SG(:,:), data(:))
-
-  deallocate(data_SG)
+  select type (data)
+  type is (real(r4_kind))
+     allocate(data_SG_4(comp_domain(1):comp_domain(2),comp_domain(3):comp_domain(4)))
+     call data_override_2d(gridname,fieldname,data_SG_4,time,override)
+     call mpp_pass_SG_to_UG(UG_domain, data_SG_4(:,:), data(:))
+     deallocate(data_SG_4)
+  type is (real(r8_kind))
+     allocate(data_SG_8(comp_domain(1):comp_domain(2),comp_domain(3):comp_domain(4)))
+     call data_override_2d(gridname,fieldname,data_SG_8,time,override)
+     call mpp_pass_SG_to_UG(UG_domain, data_SG_8(:,:), data(:))
+     deallocate(data_SG_8)
+  end select
 
 end subroutine data_override_UG_1d
 
@@ -1327,12 +1494,14 @@ end subroutine data_override_UG_1d
 subroutine data_override_UG_2d(gridname,fieldname,data,time,override)
   character(len=3),     intent(in) :: gridname !< model grid ID
   character(len=*),     intent(in) :: fieldname !< field to override
-  real, dimension(:,:), intent(inout) :: data !< data returned by this call
+  class(*), dimension(:,:), intent(inout) :: data !< data returned by this call
   type(time_type),      intent(in) :: time !<  model time
   logical, intent(out), optional :: override !< true if the field has been overriden succesfully
   !local vars
-  real, dimension(:,:,:), allocatable ::  data_SG
-  real, dimension(:,:),   allocatable ::  data_UG
+  real(r4_kind), dimension(:,:,:), allocatable ::  data_SG_4
+  real(r8_kind), dimension(:,:,:), allocatable ::  data_SG_8
+  real(r4_kind), dimension(:,:),   allocatable ::  data_UG_4
+  real(r8_kind), dimension(:,:),   allocatable ::  data_UG_8
   type(domainUG) :: UG_domain
   integer       :: index1
   integer       :: i, nlevel, nlevel_max
@@ -1349,20 +1518,38 @@ subroutine data_override_UG_2d(gridname,fieldname,data,time,override)
   enddo
   if(index1 .eq. -1) return  ! NO override was performed
 
-  nlevel = size(data,2)
-  nlevel_max = nlevel
-  call mpp_max(nlevel_max)
+  select type (data)
+  type is (real(r4_kind))
+     nlevel = size(data,2)
+     nlevel_max = nlevel
+     call mpp_max(nlevel_max)
 
-  call get_domainUG(gridname,UG_domain,comp_domain)
-  allocate(data_SG(comp_domain(1):comp_domain(2),comp_domain(3):comp_domain(4),nlevel_max))
-  allocate(data_UG(size(data,1), nlevel_max))
-  data_SG = 0.0
-  call data_override_3d(gridname,fieldname,data_SG,time,override)
+     call get_domainUG(gridname,UG_domain,comp_domain)
+     allocate(data_SG_4(comp_domain(1):comp_domain(2),comp_domain(3):comp_domain(4),nlevel_max))
+     allocate(data_UG_4(size(data,1), nlevel_max))
+     data_SG_4 = 0.0
+     call data_override_3d(gridname,fieldname,data_SG_4,time,override)
 
-  call mpp_pass_SG_to_UG(UG_domain, data_SG(:,:,:), data_UG(:,:))
-  data(:,1:nlevel) = data_UG(:,1:nlevel)
+     call mpp_pass_SG_to_UG(UG_domain, data_SG_4(:,:,:), data_UG_4(:,:))
+     data(:,1:nlevel) = data_UG_4(:,1:nlevel)
 
-  deallocate(data_SG, data_UG)
+     deallocate(data_SG_4, data_UG_4)
+  type is (real(r8_kind))
+     nlevel = size(data,2)
+     nlevel_max = nlevel
+     call mpp_max(nlevel_max)
+
+     call get_domainUG(gridname,UG_domain,comp_domain)
+     allocate(data_SG_8(comp_domain(1):comp_domain(2),comp_domain(3):comp_domain(4),nlevel_max))
+     allocate(data_UG_8(size(data,1), nlevel_max))
+     data_SG_8 = 0.0
+     call data_override_3d(gridname,fieldname,data_SG_8,time,override)
+
+     call mpp_pass_SG_to_UG(UG_domain, data_SG_8(:,:,:), data_UG_8(:,:))
+     data(:,1:nlevel) = data_UG_8(:,1:nlevel)
+
+     deallocate(data_SG_8, data_UG_8)
+  end select
 
 end subroutine data_override_UG_2d
 
