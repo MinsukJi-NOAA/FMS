@@ -1238,11 +1238,12 @@ CONTAINS
   !> @return true if send is successful
   LOGICAL FUNCTION send_data_0d(diag_field_id, field, time, err_msg)
     INTEGER, INTENT(in) :: diag_field_id
-    REAL, INTENT(in) :: field
+    CLASS(*), INTENT(in) :: field
     TYPE(time_type), INTENT(in), OPTIONAL :: time
     CHARACTER(len=*), INTENT(out), OPTIONAL :: err_msg
 
-    REAL :: field_out(1, 1, 1)
+    REAL(r4_kind), DIMENSION(:,:,:), ALLOCATABLE :: field_out_r4
+    REAL(r8_kind), DIMENSION(:,:,:), ALLOCATABLE :: field_out_r8
 
     ! If diag_field_id is < 0 it means that this field is not registered, simply return
     IF ( diag_field_id <= 0 ) THEN
@@ -1250,22 +1251,33 @@ CONTAINS
        RETURN
     END IF
     ! First copy the data to a three d array with last element 1
-    field_out(1, 1, 1) = field
-    send_data_0d = send_data_3d(diag_field_id, field_out, time, err_msg=err_msg)
+    select type (field)
+    type is (real(r4_kind))
+      allocate(field_out_r4(1, 1, 1))
+      field_out_r4(1, 1, 1) = field
+      send_data_0d = send_data_3d(diag_field_id, field_out_r4, time, err_msg=err_msg)
+      deallocate(field_out_r4)
+    type is (real(r8_kind))
+      allocate(field_out_r8(1, 1, 1))
+      field_out_r8(1, 1, 1) = field
+      send_data_0d = send_data_3d(diag_field_id, field_out_r8, time, err_msg=err_msg)
+      deallocate(field_out_r8)
+    end select
   END FUNCTION send_data_0d
 
   !> @return true if send is successful
   LOGICAL FUNCTION send_data_1d(diag_field_id, field, time, is_in, mask, rmask, ie_in, weight, err_msg)
     INTEGER, INTENT(in) :: diag_field_id
-    REAL, DIMENSION(:), INTENT(in) :: field
-    REAL, INTENT(in), OPTIONAL :: weight
-    REAL, INTENT(in), DIMENSION(:), OPTIONAL :: rmask
+    CLASS(*), DIMENSION(:), INTENT(in) :: field
+    CLASS(*), INTENT(in), OPTIONAL :: weight
+    CLASS(*), INTENT(in), DIMENSION(:), OPTIONAL :: rmask
     TYPE (time_type), INTENT(in), OPTIONAL :: time
     INTEGER, INTENT(in), OPTIONAL :: is_in, ie_in
     LOGICAL, INTENT(in), DIMENSION(:), OPTIONAL :: mask
     CHARACTER(len=*), INTENT(out), OPTIONAL :: err_msg
 
-    REAL, DIMENSION(SIZE(field(:)), 1, 1) :: field_out
+    REAL(r4_kind), DIMENSION(:,:,:), ALLOCATABLE :: field_out_r4
+    REAL(r8_kind), DIMENSION(:,:,:), ALLOCATABLE :: field_out_r8
     LOGICAL, DIMENSION(SIZE(field(:)), 1, 1) ::  mask_out
 
     ! If diag_field_id is < 0 it means that this field is not registered, simply return
@@ -1274,9 +1286,6 @@ CONTAINS
        RETURN
     END IF
 
-    ! First copy the data to a three d array with last element 1
-    field_out(:, 1, 1) = field
-
     ! Default values for mask
     IF ( PRESENT(mask) ) THEN
        mask_out(:, 1, 1) = mask
@@ -1284,38 +1293,108 @@ CONTAINS
        mask_out = .TRUE.
     END IF
 
-    IF ( PRESENT(rmask) ) WHERE (rmask < 0.5) mask_out(:, 1, 1) = .FALSE.
-    IF ( PRESENT(mask) .OR. PRESENT(rmask) ) THEN
-       IF ( PRESENT(is_in) .OR. PRESENT(ie_in) ) THEN
-          send_data_1d = send_data_3d(diag_field_id, field_out, time, is_in=is_in, js_in=1, ks_in=1,&
-               & mask=mask_out, ie_in=ie_in, je_in=1, ke_in=1, weight=weight, err_msg=err_msg)
-       ELSE
-          send_data_1d = send_data_3d(diag_field_id, field_out, time, mask=mask_out,&
-               & weight=weight, err_msg=err_msg)
+    select type (field)
+    type is (real(r4_kind))
+       ! First copy the data to a three d array with last element 1
+       allocate(field_out_r4(size(field(:)), 1, 1)
+       field_out_r4(:, 1, 1) = field
+       if (present(rmask)) then
+          select type (rmask)
+          type is (real(r4_kind))
+             WHERE (rmask < 0.5) mask_out(:, 1, 1) = .FALSE.
+             select type (weight)
+             type is (real(r4_kind))
+                IF ( PRESENT(is_in) .OR. PRESENT(ie_in) ) THEN
+                   send_data_1d = send_data_3d(diag_field_id, field_out_r4, time, is_in=is_in, js_in=1, ks_in=1,&
+                        & mask=mask_out, ie_in=ie_in, je_in=1, ke_in=1, weight=weight, err_msg=err_msg)
+                ELSE
+                   send_data_1d = send_data_3d(diag_field_id, field_out_r4, time, mask=mask_out,&
+                        & weight=weight, err_msg=err_msg)
+                END IF
+             end select
+          end select
+       else if (present(mask)) then
+          select type (weight)
+          type is (real(r4_kind))
+             IF ( PRESENT(is_in) .OR. PRESENT(ie_in) ) THEN
+                send_data_1d = send_data_3d(diag_field_id, field_out_r4, time, is_in=is_in, js_in=1, ks_in=1,&
+                     & mask=mask_out, ie_in=ie_in, je_in=1, ke_in=1, weight=weight, err_msg=err_msg)
+             ELSE
+                send_data_1d = send_data_3d(diag_field_id, field_out_r4, time, mask=mask_out,&
+                     & weight=weight, err_msg=err_msg)
+             END IF
+          end select
+       else
+          select type (weight)
+          type is (real(r4_kind))
+             IF ( PRESENT(is_in) .OR. PRESENT(ie_in) ) THEN
+                send_data_1d = send_data_3d(diag_field_id, field_out_r4, time, is_in=is_in, js_in=1, ks_in=1,&
+                     & ie_in=ie_in, je_in=1, ke_in=1, weight=weight, err_msg=err_msg)
+             ELSE
+                send_data_1d = send_data_3d(diag_field_id, field_out_r4, time, weight=weight, err_msg=err_msg)
+             END IF
+          end select
        END IF
-    ELSE
-       IF ( PRESENT(is_in) .OR. PRESENT(ie_in) ) THEN
-          send_data_1d = send_data_3d(diag_field_id, field_out, time, is_in=is_in, js_in=1, ks_in=1,&
-               & ie_in=ie_in, je_in=1, ke_in=1, weight=weight, err_msg=err_msg)
-       ELSE
-          send_data_1d = send_data_3d(diag_field_id, field_out, time, weight=weight, err_msg=err_msg)
+       deallocate(field_out_r4)
+    type is (real(r8_kind))
+       ! First copy the data to a three d array with last element 1
+       allocate(field_out_r8(size(field(:)), 1, 1)
+       field_out_r8(:, 1, 1) = field
+       if (present(rmask)) then
+          select type (rmask)
+          type is (real(r8_kind))
+             WHERE (rmask < 0.5) mask_out(:, 1, 1) = .FALSE.
+             select type (weight)
+             type is (real(r8_kind))
+                IF ( PRESENT(is_in) .OR. PRESENT(ie_in) ) THEN
+                   send_data_1d = send_data_3d(diag_field_id, field_out_r8, time, is_in=is_in, js_in=1, ks_in=1,&
+                        & mask=mask_out, ie_in=ie_in, je_in=1, ke_in=1, weight=weight, err_msg=err_msg)
+                ELSE
+                   send_data_1d = send_data_3d(diag_field_id, field_out_r8, time, mask=mask_out,&
+                        & weight=weight, err_msg=err_msg)
+                END IF
+             end select
+          end select
+       else if (present(mask)) then
+          select type (weight)
+          type is (real(r8_kind))
+             IF ( PRESENT(is_in) .OR. PRESENT(ie_in) ) THEN
+                send_data_1d = send_data_3d(diag_field_id, field_out_r8, time, is_in=is_in, js_in=1, ks_in=1,&
+                     & mask=mask_out, ie_in=ie_in, je_in=1, ke_in=1, weight=weight, err_msg=err_msg)
+             ELSE
+                send_data_1d = send_data_3d(diag_field_id, field_out_r8, time, mask=mask_out,&
+                     & weight=weight, err_msg=err_msg)
+             END IF
+          end select
+       else
+          select type (weight)
+          type is (real(r8_kind))
+             IF ( PRESENT(is_in) .OR. PRESENT(ie_in) ) THEN
+                send_data_1d = send_data_3d(diag_field_id, field_out_r8, time, is_in=is_in, js_in=1, ks_in=1,&
+                     & ie_in=ie_in, je_in=1, ke_in=1, weight=weight, err_msg=err_msg)
+             ELSE
+                send_data_1d = send_data_3d(diag_field_id, field_out_r8, time, weight=weight, err_msg=err_msg)
+             END IF
+          end select
        END IF
-    END IF
+       deallocate(field_out_r8)
+    end select
   END FUNCTION send_data_1d
 
   !> @return true if send is successful
   LOGICAL FUNCTION send_data_2d(diag_field_id, field, time, is_in, js_in, &
        & mask, rmask, ie_in, je_in, weight, err_msg)
     INTEGER, INTENT(in) :: diag_field_id
-    REAL, INTENT(in), DIMENSION(:,:) :: field
-    REAL, INTENT(in), OPTIONAL :: weight
+    CLASS(*), INTENT(in), DIMENSION(:,:) :: field
+    CLASS(*), INTENT(in), OPTIONAL :: weight
     TYPE (time_type), INTENT(in), OPTIONAL :: time
     INTEGER, INTENT(in), OPTIONAL :: is_in, js_in, ie_in, je_in
     LOGICAL, INTENT(in), DIMENSION(:,:), OPTIONAL :: mask
-    REAL, INTENT(in), DIMENSION(:,:),OPTIONAL :: rmask
+    CLASS(*), INTENT(in), DIMENSION(:,:),OPTIONAL :: rmask
     CHARACTER(len=*), INTENT(out), OPTIONAL :: err_msg
 
-    REAL, DIMENSION(SIZE(field,1),SIZE(field,2),1) :: field_out
+    REAL(r4_kind), DIMENSION(:,:,:), ALLOCATABLE :: field_out_r4
+    REAL(r8_kind), DIMENSION(:,:,:), ALLOCATABLE :: field_out_r8
     LOGICAL, DIMENSION(SIZE(field,1),SIZE(field,2),1) ::  mask_out
 
     ! If diag_field_id is < 0 it means that this field is not registered, simply return
@@ -1324,9 +1403,6 @@ CONTAINS
        RETURN
     END IF
 
-    ! First copy the data to a three d array with last element 1
-    field_out(:, :, 1) = field
-
     ! Default values for mask
     IF ( PRESENT(mask) ) THEN
        mask_out(:, :, 1) = mask
@@ -1334,14 +1410,64 @@ CONTAINS
        mask_out = .TRUE.
     END IF
 
-    IF ( PRESENT(rmask) ) WHERE ( rmask < 0.5 ) mask_out(:, :, 1) = .FALSE.
-    IF ( PRESENT(mask) .OR. PRESENT(rmask) ) THEN
-       send_data_2d = send_data_3d(diag_field_id, field_out, time, is_in=is_in, js_in=js_in, ks_in=1, mask=mask_out,&
-            & ie_in=ie_in, je_in=je_in, ke_in=1, weight=weight, err_msg=err_msg)
-    ELSE
-       send_data_2d = send_data_3d(diag_field_id, field_out, time, is_in=is_in, js_in=js_in, ks_in=1,&
-            & ie_in=ie_in, je_in=je_in, ke_in=1, weight=weight, err_msg=err_msg)
-    END IF
+    select type (field)
+    type is (real(r4_kind))
+       ! First copy the data to a three d array with last element 1
+       allocate(field_out_r4(size(field,1),size(field,2),1)
+       field_out_r4(:, :, 1) = field
+       if (present(rmask)) then
+          select type (rmask)
+          type is (real(r4_kind))
+             WHERE ( rmask < 0.5 ) mask_out(:, :, 1) = .FALSE.
+             select type (weight)
+             type is (real(r4_kind))
+                send_data_2d = send_data_3d(diag_field_id, field_out_r4, time, is_in=is_in, js_in=js_in, ks_in=1, mask=mask_out,&
+                     & ie_in=ie_in, je_in=je_in, ke_in=1, weight=weight, err_msg=err_msg)
+             end select
+          end select
+       else (present(mask)) then
+          select type (weight)
+          type is (real(r4_kind))
+             send_data_2d = send_data_3d(diag_field_id, field_out_r4, time, is_in=is_in, js_in=js_in, ks_in=1, mask=mask_out,&
+                  & ie_in=ie_in, je_in=je_in, ke_in=1, weight=weight, err_msg=err_msg)
+          end select
+       else
+          select type (weight)
+          type is (real(r4_kind))
+             send_data_2d = send_data_3d(diag_field_id, field_out_r4, time, is_in=is_in, js_in=js_in, ks_in=1,&
+                  & ie_in=ie_in, je_in=je_in, ke_in=1, weight=weight, err_msg=err_msg)
+          end select
+       end if
+       deallocate(field_out_r4)
+    type is (real(r8_kind))
+       ! First copy the data to a three d array with last element 1
+       allocate(field_out_r8(size(field,1),size(field,2),1)
+       field_out_r8(:, :, 1) = field
+       if (present(rmask)) then
+          select type (rmask)
+          type is (real(r8_kind))
+             WHERE ( rmask < 0.5 ) mask_out(:, :, 1) = .FALSE.
+             select type (weight)
+             type is (real(r8_kind))
+                send_data_2d = send_data_3d(diag_field_id, field_out_r8, time, is_in=is_in, js_in=js_in, ks_in=1, mask=mask_out,&
+                     & ie_in=ie_in, je_in=je_in, ke_in=1, weight=weight, err_msg=err_msg)
+             end select
+          end select
+       else (present(mask)) then
+          select type (weight)
+          type is (real(r8_kind))
+             send_data_2d = send_data_3d(diag_field_id, field_out_r8, time, is_in=is_in, js_in=js_in, ks_in=1, mask=mask_out,&
+                  & ie_in=ie_in, je_in=je_in, ke_in=1, weight=weight, err_msg=err_msg)
+          end select
+       else
+          select type (weight)
+          type is (real(r8_kind))
+             send_data_2d = send_data_3d(diag_field_id, field_out_r8, time, is_in=is_in, js_in=js_in, ks_in=1,&
+                  & ie_in=ie_in, je_in=je_in, ke_in=1, weight=weight, err_msg=err_msg)
+          end select
+       end if
+       deallocate(field_out_r8)
+    end select
   END FUNCTION send_data_2d
 
 #ifdef OVERLOAD_R8
@@ -1432,16 +1558,20 @@ CONTAINS
   LOGICAL FUNCTION send_data_3d(diag_field_id, field, time, is_in, js_in, ks_in, &
              & mask, rmask, ie_in, je_in, ke_in, weight, err_msg)
     INTEGER, INTENT(in) :: diag_field_id
-    REAL, DIMENSION(:,:,:), INTENT(in) :: field
-    REAL, INTENT(in), OPTIONAL :: weight
+    CLASS(*), DIMENSION(:,:,:), INTENT(in) :: field
+    CLASS(*), INTENT(in), OPTIONAL :: weight
     TYPE (time_type), INTENT(in), OPTIONAL :: time
     INTEGER, INTENT(in), OPTIONAL :: is_in, js_in, ks_in,ie_in,je_in, ke_in
     LOGICAL, DIMENSION(:,:,:), INTENT(in), OPTIONAL :: mask
-    REAL, DIMENSION(:,:,:), INTENT(in), OPTIONAL :: rmask
+    CLASS(*), DIMENSION(:,:,:), INTENT(in), OPTIONAL :: rmask
     CHARACTER(len=*), INTENT(out), OPTIONAL :: err_msg
 
-    REAL :: weight1
-    REAL :: missvalue
+    REAL(r4_kind), ALLOCATABLE :: weight1_r4
+    REAL(r8_kind), ALLOCATABLE :: weight1_r8
+    REAL(r4_kind), ALLOCATABLE :: missvalue_r4
+    REAL(r8_kind), ALLOCATABLE :: missvalue_r8
+    !REAL :: weight1
+    !REAL :: missvalue
     INTEGER :: pow_value
     INTEGER :: ksr, ker
     INTEGER :: i, out_num, file_num, n1, n2, n3, number_of_outputs, ii,f1,f2,f3,f4
@@ -1506,7 +1636,15 @@ CONTAINS
     ELSE
        oor_mask = .TRUE.
     END IF
-    IF ( PRESENT(rmask) ) WHERE ( rmask < 0.5 ) oor_mask = .FALSE.
+
+    IF ( PRESENT(rmask) ) THEN
+       select type (rmask)
+       type is (real(r4_kind))
+          WHERE ( rmask < 0.5 ) oor_mask = .FALSE.
+       type is (real(r8_kind))
+          WHERE ( rmask < 0.5 ) oor_mask = .FALSE.
+       end select
+    END IF
 
     ! send_data works in either one or another of two modes.
     ! 1. Input field is a window (e.g. FMS physics)
@@ -1600,9 +1738,23 @@ CONTAINS
 
     ! weight is for time averaging where each time level may has a different weight
     IF ( PRESENT(weight) ) THEN
-       weight1 = weight
+       select type (weight)
+       type is (real(r4_kind))
+          allocate(weight1_r4)
+          weight1_r4 = weight
+       type is (real(r8_kind))
+          allocate(weight1_r8)
+          weight1_r8 = weight
+       end select
     ELSE
-       weight1 = 1.
+       select type (field)
+       type is (real(r4_kind))
+          allocate(weight1_r4)
+          weight1_r4 = 1.
+       type is (real(r8_kind))
+          allocate(weight1_r8)
+          weight1_r8 = 1.
+       end select
     END IF
 
     ! Is there a missing_value?
@@ -3470,10 +3622,11 @@ CONTAINS
 
   !> @brief Initialize Diagnostics Manager.
   !! @details Open and read diag_table. Select fields and files for diagnostic output.
-  SUBROUTINE diag_manager_init(diag_model_subset, time_init, err_msg)
+  SUBROUTINE diag_manager_init(diag_model_subset, time_init, err_msg, precision)
     INTEGER, OPTIONAL, INTENT(IN) :: diag_model_subset
     INTEGER, DIMENSION(6), OPTIONAL, INTENT(IN) :: time_init !< Model time diag_manager initialized
     CHARACTER(len=*), INTENT(out), OPTIONAL :: err_msg
+    class(*), intent(in), optional :: precision
 
     CHARACTER(len=*), PARAMETER :: SEP = '|'
 
