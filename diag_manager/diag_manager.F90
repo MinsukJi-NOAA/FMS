@@ -1497,6 +1497,9 @@ CONTAINS
 
     ! Default values for mask
     IF ( PRESENT(mask) ) THEN
+       type is (real(r4_kind))
+          allocate(weight1_r4)
+          weight1_r4 = 1.
        mask_out(:, :, 1) = mask
     ELSE
        mask_out = .TRUE.
@@ -1759,7 +1762,7 @@ CONTAINS
 
     ! Is there a missing_value?
     missvalue_present = input_fields(diag_field_id)%missing_value_present
-    IF ( missvalue_present ) missvalue = input_fields(diag_field_id)%missing_value
+!TODO    IF ( missvalue_present ) missvalue = input_fields(diag_field_id)%missing_value
 
     number_of_outputs = input_fields(diag_field_id)%num_output_fields
 !$OMP CRITICAL
@@ -1776,6 +1779,8 @@ CONTAINS
     if(present(time)) input_fields(diag_field_id)%time = time
 
     ! Issue a warning if any value in field is outside the valid range
+    select type (field)
+    type is (real(r4_kind))
     IF ( input_fields(diag_field_id)%range_present ) THEN
        IF ( ISSUE_OOR_WARNINGS .OR. OOR_WARNINGS_FATAL ) THEN
           WRITE (error_string, '("[",ES14.5E3,",",ES14.5E3,"]")')&
@@ -1821,6 +1826,53 @@ CONTAINS
           END IF
        END IF
     END IF
+    type is (real(r8_kind))
+    IF ( input_fields(diag_field_id)%range_present ) THEN
+       IF ( ISSUE_OOR_WARNINGS .OR. OOR_WARNINGS_FATAL ) THEN
+          WRITE (error_string, '("[",ES14.5E3,",",ES14.5E3,"]")')&
+               & input_fields(diag_field_id)%range(1:2)
+          WRITE (error_string1, '("(Min: ",ES14.5E3,", Max: ",ES14.5E3, ")")')&
+                  & MINVAL(field(f1:f2,f3:f4,ks:ke),MASK=oor_mask(f1:f2,f3:f4,ks:ke)),&
+                  & MAXVAL(field(f1:f2,f3:f4,ks:ke),MASK=oor_mask(f1:f2,f3:f4,ks:ke))
+          IF ( missvalue_present ) THEN
+             IF ( ANY(oor_mask(f1:f2,f3:f4,ks:ke) .AND.&
+                  &   ((field(f1:f2,f3:f4,ks:ke) < input_fields(diag_field_id)%range(1) .OR.&
+                  &     field(f1:f2,f3:f4,ks:ke) > input_fields(diag_field_id)%range(2)).AND.&
+                  &     field(f1:f2,f3:f4,ks:ke) .NE. missvalue)) ) THEN
+                ! <ERROR STATUS="WARNING/FATAL">
+                !   A value for <module_name> in field <field_name> (Min: <min_val>, Max: <max_val>)
+                !   is outside the range [<lower_val>,<upper_val>] and not equal to the missing
+                !   value.
+                ! </ERROR>
+                CALL error_mesg('diag_manager_mod::send_data_3d',&
+                     & 'A value for '//&
+                     &TRIM(input_fields(diag_field_id)%module_name)//' in field '//&
+                     &TRIM(input_fields(diag_field_id)%field_name)//' '&
+                     &//TRIM(error_string1)//&
+                     &' is outside the range '//TRIM(error_string)//',&
+                     & and not equal to the missing value.',&
+                     &OOR_WARNING)
+             END IF
+          ELSE
+             IF ( ANY(oor_mask(f1:f2,f3:f4,ks:ke) .AND.&
+                  &   (field(f1:f2,f3:f4,ks:ke) < input_fields(diag_field_id)%range(1) .OR.&
+                  &    field(f1:f2,f3:f4,ks:ke) > input_fields(diag_field_id)%range(2))) ) THEN
+                ! <ERROR STATUS="WARNING/FATAL">
+                !   A value for <module_name> in field <field_name> (Min: <min_val>, Max: <max_val>)
+                !   is outside the range [<lower_val>,<upper_val>].
+                ! </ERROR>
+                CALL error_mesg('diag_manager_mod::send_data_3d',&
+                     & 'A value for '//&
+                     &TRIM(input_fields(diag_field_id)%module_name)//' in field '//&
+                     &TRIM(input_fields(diag_field_id)%field_name)//' '&
+                     &//TRIM(error_string1)//&
+                     &' is outside the range '//TRIM(error_string)//'.',&
+                     &OOR_WARNING)
+             END IF
+          END IF
+       END IF
+    END IF
+    end select
 
     ! Loop through each output field that depends on this input field
     num_out_fields: DO ii = 1, number_of_outputs
@@ -1962,6 +2014,8 @@ CONTAINS
        END IF
 
        ! Take care of submitted field data
+       select type (field)
+       type is (real(r4_kind))
        IF ( average ) THEN
           IF ( input_fields(diag_field_id)%mask_variant ) THEN
              IF ( need_compute ) THEN
@@ -3046,6 +3100,1092 @@ CONTAINS
              END IF
           END IF
        END IF !average
+       type is (real(r8_kind))
+       IF ( average ) THEN
+          IF ( input_fields(diag_field_id)%mask_variant ) THEN
+             IF ( need_compute ) THEN
+                WRITE (error_string,'(a,"/",a)')  &
+                     & TRIM(input_fields(diag_field_id)%module_name), &
+                     & TRIM(output_fields(out_num)%output_name)
+                IF ( fms_error_handler('diag_manager_mod::send_data_3d', 'module/output_field '//TRIM(error_string)//&
+                     & ', regional output NOT supported with mask_variant', err_msg)) THEN
+                   DEALLOCATE(oor_mask)
+                   RETURN
+                END IF
+             END IF
+
+             ! Should reduced_k_range data be supported with the mask_variant option   ?????
+             ! If not, error message should be produced and the reduced_k_range loop below eliminated
+             IF ( PRESENT(mask) ) THEN
+                IF ( missvalue_present ) THEN
+                   IF ( debug_diag_manager ) THEN
+                      CALL update_bounds(out_num, is-hi, ie-hi, js-hj, je-hj, ks, ke)
+                      CALL check_out_of_bounds(out_num, diag_field_id, err_msg=err_msg_local)
+                      IF ( err_msg_local /= '' ) THEN
+                         IF ( fms_error_handler('diag_manager_mod::send_data_3d', err_msg_local, err_msg) ) THEN
+                            DEALLOCATE(oor_mask)
+                            RETURN
+                         END IF
+                      END IF
+                   END IF
+                   IF( numthreads>1 .AND. phys_window ) then
+                      IF ( reduced_k_range ) THEN
+                         DO k= ksr, ker
+                            k1= k - ksr + 1
+                            DO j=js, je
+                               DO i=is, ie
+                                  IF ( mask(i-is+1+hi, j-js+1+hj, k) ) THEN
+                                     IF ( pow_value /= 1 ) THEN
+                                        output_fields(out_num)%buffer(i-hi,j-hj,k1,sample) =&
+                                             & output_fields(out_num)%buffer(i-hi,j-hj,k1,sample) +&
+                                             & (field(i-is+1+hi, j-js+1+hj, k) * weight1)**(pow_value)
+                                     ELSE
+                                        output_fields(out_num)%buffer(i-hi,j-hj,k1,sample) =&
+                                             & output_fields(out_num)%buffer(i-hi,j-hj,k1,sample) +&
+                                             & field(i-is+1+hi, j-js+1+hj, k) * weight1
+                                     END IF
+                                     output_fields(out_num)%counter(i-hi,j-hj,k1,sample) =&
+                                          & output_fields(out_num)%counter(i-hi,j-hj,k1,sample) + weight1
+                                  END IF
+                               END DO
+                            END DO
+                         END DO
+                      ELSE
+                         DO k=ks, ke
+                            DO j=js, je
+                               DO i=is, ie
+                                  IF ( mask(i-is+1+hi, j-js+1+hj, k) ) THEN
+                                     IF ( pow_value /= 1 ) THEN
+                                        output_fields(out_num)%buffer(i-hi,j-hj,k,sample) =&
+                                             & output_fields(out_num)%buffer(i-hi,j-hj,k,sample) +&
+                                             & (field(i-is+1+hi,j-js+1+hj,k)*weight1)**(pow_value)
+                                     ELSE
+                                        output_fields(out_num)%buffer(i-hi,j-hj,k,sample) =&
+                                             & output_fields(out_num)%buffer(i-hi,j-hj,k,sample) +&
+                                             & field(i-is+1+hi,j-js+1+hj,k)*weight1
+                                     END IF
+                                     output_fields(out_num)%counter(i-hi,j-hj,k,sample) =&
+                                          &output_fields(out_num)%counter(i-hi,j-hj,k,sample) + weight1
+                                  END IF
+                               END DO
+                            END DO
+                         END DO
+                      END IF
+                   ELSE
+!$OMP CRITICAL
+                      IF ( reduced_k_range ) THEN
+                         DO k= ksr, ker
+                            k1= k - ksr + 1
+                            DO j=js, je
+                               DO i=is, ie
+                                  IF ( mask(i-is+1+hi, j-js+1+hj, k) ) THEN
+                                     IF ( pow_value /= 1 ) THEN
+                                        output_fields(out_num)%buffer(i-hi,j-hj,k1,sample) =&
+                                             & output_fields(out_num)%buffer(i-hi,j-hj,k1,sample) +&
+                                             & (field(i-is+1+hi, j-js+1+hj, k) * weight1)**(pow_value)
+                                     ELSE
+                                        output_fields(out_num)%buffer(i-hi,j-hj,k1,sample) =&
+                                             & output_fields(out_num)%buffer(i-hi,j-hj,k1,sample) +&
+                                             & field(i-is+1+hi, j-js+1+hj, k) * weight1
+                                     END IF
+                                     output_fields(out_num)%counter(i-hi,j-hj,k1,sample) =&
+                                          & output_fields(out_num)%counter(i-hi,j-hj,k1,sample) + weight1
+                                  END IF
+                               END DO
+                            END DO
+                         END DO
+                      ELSE
+                         DO k=ks, ke
+                            DO j=js, je
+                               DO i=is, ie
+                                  IF ( mask(i-is+1+hi, j-js+1+hj, k) ) THEN
+                                     IF ( pow_value /= 1 ) THEN
+                                        output_fields(out_num)%buffer(i-hi,j-hj,k,sample) =&
+                                             & output_fields(out_num)%buffer(i-hi,j-hj,k,sample) +&
+                                             & (field(i-is+1+hi,j-js+1+hj,k)*weight1)**(pow_value)
+                                     ELSE
+                                        output_fields(out_num)%buffer(i-hi,j-hj,k,sample) =&
+                                             & output_fields(out_num)%buffer(i-hi,j-hj,k,sample) +&
+                                             & field(i-is+1+hi,j-js+1+hj,k)*weight1
+                                     END IF
+                                     output_fields(out_num)%counter(i-hi,j-hj,k,sample) =&
+                                          &output_fields(out_num)%counter(i-hi,j-hj,k,sample) + weight1
+                                  END IF
+                               END DO
+                            END DO
+                         END DO
+                      END IF
+!$OMP END CRITICAL
+                   END IF
+                ELSE
+                   WRITE (error_string,'(a,"/",a)')&
+                        & TRIM(input_fields(diag_field_id)%module_name), &
+                        & TRIM(output_fields(out_num)%output_name)
+                   IF ( fms_error_handler('diag_manager_mod::send_data_3d', 'module/output_field '//TRIM(error_string)//&
+                        & ', variable mask but no missing value defined', err_msg)) THEN
+                      DEALLOCATE(oor_mask)
+                      RETURN
+                   END IF
+                END IF
+             ELSE  ! no mask present
+                WRITE (error_string,'(a,"/",a)')&
+                     & TRIM(input_fields(diag_field_id)%module_name), &
+                     & TRIM(output_fields(out_num)%output_name)
+                IF(fms_error_handler('diag_manager_mod::send_data_3d','module/output_field '//TRIM(error_string)//&
+                     & ', variable mask but no mask given', err_msg)) THEN
+                   DEALLOCATE(oor_mask)
+                   RETURN
+                END IF
+             END IF
+          ELSE ! mask_variant=false
+             IF ( PRESENT(mask) ) THEN
+                IF ( missvalue_present ) THEN
+                   IF ( need_compute ) THEN
+                      IF (numthreads>1 .AND. phys_window) then
+                         DO k = l_start(3), l_end(3)
+                            k1 = k-l_start(3)+1
+                            DO j = js, je
+                               DO i = is, ie
+                                  IF ( l_start(1)+hi <= i .AND. i <= l_end(1)+hi .AND. l_start(2)+hj <= j .AND. j <= l_end(2)+hj ) THEN
+                                     i1 = i-l_start(1)-hi+1
+                                     j1=  j-l_start(2)-hj+1
+                                     IF ( mask(i-is+1+hi, j-js+1+hj, k) ) THEN
+                                        IF ( pow_value /= 1 ) THEN
+                                           output_fields(out_num)%buffer(i1,j1,k1,sample) =&
+                                                & output_fields(out_num)%buffer(i1,j1,k1,sample) +&
+                                                & (field(i-is+1+hi,j-js+1+hj,k) * weight1)**(pow_value)
+                                        ELSE
+                                           output_fields(out_num)%buffer(i1,j1,k1,sample) =&
+                                                & output_fields(out_num)%buffer(i1,j1,k1,sample) +&
+                                                & field(i-is+1+hi,j-js+1+hj,k) * weight1
+                                        END IF
+                                     ELSE
+                                        output_fields(out_num)%buffer(i1,j1,k1,sample) = missvalue
+                                     END IF
+                                  END IF
+                               END DO
+                            END DO
+                         END DO
+                      ELSE
+!$OMP CRITICAL
+                         DO k = l_start(3), l_end(3)
+                            k1 = k-l_start(3)+1
+                            DO j = js, je
+                               DO i = is, ie
+                                  IF ( l_start(1)+hi <= i .AND. i <= l_end(1)+hi .AND. l_start(2)+hj <= j .AND. j <= l_end(2)+hj ) THEN
+                                     i1 = i-l_start(1)-hi+1
+                                     j1=  j-l_start(2)-hj+1
+                                     IF ( mask(i-is+1+hi, j-js+1+hj, k) ) THEN
+                                        IF ( pow_value /= 1 ) THEN
+                                           output_fields(out_num)%buffer(i1,j1,k1,sample) =&
+                                                & output_fields(out_num)%buffer(i1,j1,k1,sample) +&
+                                                & (field(i-is+1+hi,j-js+1+hj,k) * weight1)**(pow_value)
+                                        ELSE
+                                           output_fields(out_num)%buffer(i1,j1,k1,sample) =&
+                                                & output_fields(out_num)%buffer(i1,j1,k1,sample) +&
+                                                & field(i-is+1+hi,j-js+1+hj,k) * weight1
+                                        END IF
+                                     ELSE
+                                        output_fields(out_num)%buffer(i1,j1,k1,sample) = missvalue
+                                     END IF
+                                  END IF
+                               END DO
+                            END DO
+                         END DO
+!$OMP END CRITICAL
+                      ENDIF
+!$OMP CRITICAL
+                      DO j = js, je
+                         DO i = is, ie
+                            IF ( l_start(1)+hi <= i .AND. i <= l_end(1)+hi .AND. l_start(2)+hj <= j .AND. j <= l_end(2)+hj ) THEN
+                               output_fields(out_num)%num_elements(sample) = &
+                                    output_fields(out_num)%num_elements(sample) + l_end(3) - l_start(3) + 1
+                            END IF
+                         END DO
+                      END DO
+!$OMP END CRITICAL
+                   ELSE IF ( reduced_k_range ) THEN
+                      IF (numthreads>1 .AND. phys_window) then
+                         DO k=ksr, ker
+                            k1 = k - ksr + 1
+                            DO j=js, je
+                               DO i=is, ie
+                                  IF ( mask(i-is+1+hi,j-js+1+hj,k) ) THEN
+                                     IF ( pow_value /= 1 ) THEN
+                                        output_fields(out_num)%buffer(i-hi,j-hj,k1,sample) =&
+                                             & output_fields(out_num)%buffer(i-hi,j-hj,k1,sample) +&
+                                             & (field(i-is+1+hi,j-js+1+hj,k) * weight1)**(pow_value)
+                                     ELSE
+                                        output_fields(out_num)%buffer(i-hi,j-hj,k1,sample) =&
+                                             & output_fields(out_num)%buffer(i-hi,j-hj,k1,sample) +&
+                                             & field(i-is+1+hi,j-js+1+hj,k) * weight1
+                                     END IF
+                                  ELSE
+                                     output_fields(out_num)%buffer(i-hi,j-hj,k1,sample)= missvalue
+                                  END IF
+                               END DO
+                            END DO
+                         END DO
+                      ELSE
+!$OMP CRITICAL
+                         DO k=ksr, ker
+                            k1 = k - ksr + 1
+                            DO j=js, je
+                               DO i=is, ie
+                                  IF ( mask(i-is+1+hi,j-js+1+hj,k) ) THEN
+                                     IF ( pow_value /= 1 ) THEN
+                                        output_fields(out_num)%buffer(i-hi,j-hj,k1,sample) =&
+                                             & output_fields(out_num)%buffer(i-hi,j-hj,k1,sample) +&
+                                             & (field(i-is+1+hi,j-js+1+hj,k) * weight1)**(pow_value)
+                                     ELSE
+                                        output_fields(out_num)%buffer(i-hi,j-hj,k1,sample) =&
+                                             & output_fields(out_num)%buffer(i-hi,j-hj,k1,sample) +&
+                                             & field(i-is+1+hi,j-js+1+hj,k) * weight1
+                                     END IF
+                                  ELSE
+                                     output_fields(out_num)%buffer(i-hi,j-hj,k1,sample)= missvalue
+                                  END IF
+                               END DO
+                            END DO
+                         END DO
+!$OMP END CRITICAL
+                      END IF
+                   ELSE
+                      IF ( debug_diag_manager ) THEN
+                         CALL update_bounds(out_num, is-hi, ie-hi, js-hj, je-hj, ks, ke)
+                         CALL check_out_of_bounds(out_num, diag_field_id, err_msg=err_msg_local)
+                         IF ( err_msg_local /= '' ) THEN
+                            IF ( fms_error_handler('diag_manager_mod::send_data_3d', err_msg_local, err_msg) ) THEN
+                               DEALLOCATE(oor_mask)
+                               RETURN
+                            END IF
+                         END IF
+                      END IF
+                      IF (numthreads>1 .AND. phys_window) then
+                         DO k=ks, ke
+                            DO j=js, je
+                               DO i=is, ie
+                                  IF ( mask(i-is+1+hi,j-js+1+hj,k) ) THEN
+                                     IF ( pow_value /= 1 ) THEN
+                                        output_fields(out_num)%buffer(i-hi,j-hj,k,sample) =&
+                                             & output_fields(out_num)%buffer(i-hi,j-hj,k,sample) +&
+                                             & (field(i-is+1+hi,j-js+1+hj,k) * weight1)**(pow_value)
+                                     ELSE
+                                        output_fields(out_num)%buffer(i-hi,j-hj,k,sample) =&
+                                             & output_fields(out_num)%buffer(i-hi,j-hj,k,sample) +&
+                                             & field(i-is+1+hi,j-js+1+hj,k) * weight1
+                                     END IF
+                                  ELSE
+                                     output_fields(out_num)%buffer(i-hi,j-hj,k,sample)= missvalue
+                                  END IF
+                               END DO
+                            END DO
+                         END DO
+                      ELSE
+!$OMP CRITICAL
+                         DO k=ks, ke
+                            DO j=js, je
+                               DO i=is, ie
+                                  IF ( mask(i-is+1+hi,j-js+1+hj,k) ) THEN
+                                     IF ( pow_value /= 1 ) THEN
+                                        output_fields(out_num)%buffer(i-hi,j-hj,k,sample) =&
+                                             & output_fields(out_num)%buffer(i-hi,j-hj,k,sample) +&
+                                             & (field(i-is+1+hi,j-js+1+hj,k) * weight1)**(pow_value)
+                                     ELSE
+                                        output_fields(out_num)%buffer(i-hi,j-hj,k,sample) =&
+                                             & output_fields(out_num)%buffer(i-hi,j-hj,k,sample) +&
+                                             & field(i-is+1+hi,j-js+1+hj,k) * weight1
+                                     END IF
+                                  ELSE
+                                     output_fields(out_num)%buffer(i-hi,j-hj,k,sample)= missvalue
+                                  END IF
+                               END DO
+                            END DO
+                         END DO
+!$OMP END CRITICAL
+                      END IF
+                   END IF
+!$OMP CRITICAL
+                   IF ( need_compute .AND. .NOT.phys_window ) THEN
+                      IF ( ANY(mask(l_start(1)+hi:l_end(1)+hi,l_start(2)+hj:l_end(2)+hj,l_start(3):l_end(3))) ) &
+                           & output_fields(out_num)%count_0d(sample) =&
+                           & output_fields(out_num)%count_0d(sample) + weight1
+                   ELSE
+                      IF ( ANY(mask(f1:f2,f3:f4,ks:ke)) ) output_fields(out_num)%count_0d(sample) =&
+                           & output_fields(out_num)%count_0d(sample)+weight1
+                   END IF
+!$OMP END CRITICAL
+
+                ELSE ! missing value NOT present
+                   IF (   (.NOT.ALL(mask(f1:f2,f3:f4,ks:ke)) .AND. mpp_pe() .EQ. mpp_root_pe()).AND.&
+                        &  .NOT.input_fields(diag_field_id)%issued_mask_ignore_warning ) THEN
+                      ! <ERROR STATUS="WARNING">
+                      !   Mask will be ignored since missing values were not specified for field <field_name>
+                      !   in module <module_name>
+                      ! </ERROR>
+                      CALL error_mesg('diag_manager_mod::send_data_3d',&
+                           & 'Mask will be ignored since missing values were not specified for field '//&
+                           & trim(input_fields(diag_field_id)%field_name)//' in module '//&
+                           & trim(input_fields(diag_field_id)%module_name), WARNING)
+                      input_fields(diag_field_id)%issued_mask_ignore_warning = .TRUE.
+                   END IF
+                   IF ( need_compute ) THEN
+                      IF (numthreads>1 .AND. phys_window) then
+                         DO j = js, je
+                            DO i = is, ie
+                               IF ( l_start(1)+hi <= i .AND. i <= l_end(1)+hi .AND. l_start(2)+hj <= j .AND. j <= l_end(2)+hj ) THEN
+                                  i1 = i-l_start(1)-hi+1
+                                  j1 =  j-l_start(2)-hj+1
+                                  IF ( pow_value /= 1 ) THEN
+                                     output_fields(out_num)%buffer(i1,j1,:,sample)= output_fields(out_num)%buffer(i1,j1,:,sample)+ &
+                                          & (field(i-is+1+hi,j-js+1+hj,l_start(3):l_end(3))*weight1)**(pow_value)
+                                  ELSE
+                                     output_fields(out_num)%buffer(i1,j1,:,sample)= output_fields(out_num)%buffer(i1,j1,:,sample)+ &
+                                          & field(i-is+1+hi,j-js+1+hj,l_start(3):l_end(3))*weight1
+                               END IF
+                               END IF
+                            END DO
+                         END DO
+                      ELSE
+!$OMP CRITICAL
+                         DO j = js, je
+                            DO i = is, ie
+                               IF ( l_start(1)+hi <= i .AND. i <= l_end(1)+hi .AND. l_start(2)+hj <= j .AND. j <= l_end(2)+hj ) THEN
+                                  i1 = i-l_start(1)-hi+1
+                                  j1 =  j-l_start(2)-hj+1
+                                  IF ( pow_value /= 1 ) THEN
+                                     output_fields(out_num)%buffer(i1,j1,:,sample)= output_fields(out_num)%buffer(i1,j1,:,sample)+ &
+                                          & (field(i-is+1+hi,j-js+1+hj,l_start(3):l_end(3))*weight1)**(pow_value)
+                                  ELSE
+                                     output_fields(out_num)%buffer(i1,j1,:,sample)= output_fields(out_num)%buffer(i1,j1,:,sample)+ &
+                                          & field(i-is+1+hi,j-js+1+hj,l_start(3):l_end(3))*weight1
+                               END IF
+                               END IF
+                            END DO
+                         END DO
+!$OMP END CRITICAL
+                      END IF
+!$OMP CRITICAL
+                      DO j = js, je
+                         DO i = is, ie
+                            IF ( l_start(1)+hi <= i .AND. i <= l_end(1)+hi .AND. l_start(2)+hj <= j .AND. j <= l_end(2)+hj ) THEN
+                               output_fields(out_num)%num_elements(sample)=&
+                                    & output_fields(out_num)%num_elements(sample)+l_end(3)-l_start(3)+1
+
+                            END IF
+                         END DO
+                      END DO
+!$OMP END CRITICAL
+                   ELSE IF ( reduced_k_range ) THEN
+                      IF (numthreads>1 .AND. phys_window) then
+                         ksr= l_start(3)
+                         ker= l_end(3)
+                         IF ( pow_value /= 1 ) THEN
+                            output_fields(out_num)%buffer(is-hi:ie-hi,js-hj:je-hj,:,sample) =&
+                                 & output_fields(out_num)%buffer(is-hi:ie-hi,js-hj:je-hj,:,sample) +&
+                                 & (field(f1:f2,f3:f4,ksr:ker)*weight1)**(pow_value)
+                         ELSE
+                            output_fields(out_num)%buffer(is-hi:ie-hi,js-hj:je-hj,:,sample) =&
+                                 & output_fields(out_num)%buffer(is-hi:ie-hi,js-hj:je-hj,:,sample) +&
+                                 & field(f1:f2,f3:f4,ksr:ker)*weight1
+                         END IF
+                      ELSE
+!$OMP CRITICAL
+                         ksr= l_start(3)
+                         ker= l_end(3)
+                         IF ( pow_value /= 1 ) THEN
+                            output_fields(out_num)%buffer(is-hi:ie-hi,js-hj:je-hj,:,sample) =&
+                                 & output_fields(out_num)%buffer(is-hi:ie-hi,js-hj:je-hj,:,sample) +&
+                                 & (field(f1:f2,f3:f4,ksr:ker)*weight1)**(pow_value)
+                         ELSE
+                            output_fields(out_num)%buffer(is-hi:ie-hi,js-hj:je-hj,:,sample) =&
+                                 & output_fields(out_num)%buffer(is-hi:ie-hi,js-hj:je-hj,:,sample) +&
+                                 & field(f1:f2,f3:f4,ksr:ker)*weight1
+                         END IF
+!$OMP END CRITICAL
+                      END IF
+                   ELSE
+                      IF ( debug_diag_manager ) THEN
+                         CALL update_bounds(out_num, is-hi, ie-hi, js-hj, je-hj, ks, ke)
+                         CALL check_out_of_bounds(out_num, diag_field_id, err_msg=err_msg_local)
+                         IF ( err_msg_local /= '') THEN
+                            IF ( fms_error_handler('diag_manager_mod::send_data_3d', err_msg_local, err_msg) ) THEN
+                               DEALLOCATE(oor_mask)
+                               RETURN
+                            END IF
+                         END IF
+                      END IF
+                      IF (numthreads>1 .AND. phys_window) then
+                         IF ( pow_value /= 1 ) THEN
+                            output_fields(out_num)%buffer(is-hi:ie-hi,js-hj:je-hj,ks:ke,sample) =&
+                                 & output_fields(out_num)%buffer(is-hi:ie-hi,js-hj:je-hj,ks:ke,sample) +&
+                                 & (field(f1:f2,f3:f4,ks:ke)*weight1)**(pow_value)
+                         ELSE
+                            output_fields(out_num)%buffer(is-hi:ie-hi,js-hj:je-hj,ks:ke,sample) =&
+                                 & output_fields(out_num)%buffer(is-hi:ie-hi,js-hj:je-hj,ks:ke,sample) +&
+                                 & field(f1:f2,f3:f4,ks:ke)*weight1
+                         END IF
+                      ELSE
+!$OMP CRITICAL
+                         IF ( pow_value /= 1 ) THEN
+                            output_fields(out_num)%buffer(is-hi:ie-hi,js-hj:je-hj,ks:ke,sample) =&
+                                 & output_fields(out_num)%buffer(is-hi:ie-hi,js-hj:je-hj,ks:ke,sample) +&
+                                 & (field(f1:f2,f3:f4,ks:ke)*weight1)**(pow_value)
+                         ELSE
+                            output_fields(out_num)%buffer(is-hi:ie-hi,js-hj:je-hj,ks:ke,sample) =&
+                                 & output_fields(out_num)%buffer(is-hi:ie-hi,js-hj:je-hj,ks:ke,sample) +&
+                                 & field(f1:f2,f3:f4,ks:ke)*weight1
+                         END IF
+!$OMP END CRITICAL
+                      END IF
+                   END IF
+!$OMP CRITICAL
+                   IF ( .NOT.phys_window ) output_fields(out_num)%count_0d(sample) =&
+                        & output_fields(out_num)%count_0d(sample) + weight1
+!$OMP END CRITICAL
+                END IF
+             ELSE ! mask NOT present
+                IF ( missvalue_present ) THEN
+                   IF ( need_compute ) THEN
+                      if( numthreads>1 .AND. phys_window ) then
+                         DO k = l_start(3), l_end(3)
+                            k1 = k - l_start(3) + 1
+                            DO j = js, je
+                               DO i = is, ie
+                                  IF ( l_start(1)+hi <= i .AND. i <= l_end(1)+hi .AND. l_start(2)+hj <= j .AND. j <= l_end(2)+hj) THEN
+                                     i1 = i-l_start(1)-hi+1
+                                     j1=  j-l_start(2)-hj+1
+                                     IF ( field(i-is+1+hi,j-js+1+hj,k) /= missvalue ) THEN
+                                        IF ( pow_value /= 1 ) THEN
+                                           output_fields(out_num)%buffer(i1,j1,k1,sample) =&
+                                                & output_fields(out_num)%buffer(i1,j1,k1,sample) +&
+                                                & (field(i-is+1+hi,j-js+1+hj,k) * weight1)**(pow_value)
+                                        ELSE
+                                           output_fields(out_num)%buffer(i1,j1,k1,sample) =&
+                                                & output_fields(out_num)%buffer(i1,j1,k1,sample) +&
+                                                & field(i-is+1+hi,j-js+1+hj,k) * weight1
+                                        END IF
+                                     ELSE
+                                        output_fields(out_num)%buffer(i1,j1,k1,sample) = missvalue
+                                     END IF
+                                  END IF
+                               END DO
+                            END DO
+                         END DO
+                      ELSE
+!$OMP CRITICAL
+                         DO k = l_start(3), l_end(3)
+                            k1 = k - l_start(3) + 1
+                            DO j = js, je
+                               DO i = is, ie
+                                  IF ( l_start(1)+hi <= i .AND. i <= l_end(1)+hi .AND. l_start(2)+hj <= j .AND. j <= l_end(2)+hj) THEN
+                                     i1 = i-l_start(1)-hi+1
+                                     j1=  j-l_start(2)-hj+1
+                                     IF ( field(i-is+1+hi,j-js+1+hj,k) /= missvalue ) THEN
+                                        IF ( pow_value /= 1 ) THEN
+                                           output_fields(out_num)%buffer(i1,j1,k1,sample) =&
+                                                & output_fields(out_num)%buffer(i1,j1,k1,sample) +&
+                                                & (field(i-is+1+hi,j-js+1+hj,k) * weight1)**(pow_value)
+                                        ELSE
+                                           output_fields(out_num)%buffer(i1,j1,k1,sample) =&
+                                                & output_fields(out_num)%buffer(i1,j1,k1,sample) +&
+                                                & field(i-is+1+hi,j-js+1+hj,k) * weight1
+                                        END IF
+                                     ELSE
+                                        output_fields(out_num)%buffer(i1,j1,k1,sample) = missvalue
+                                     END IF
+                                  END IF
+                               END DO
+                            END DO
+                         END DO
+!$OMP END CRITICAL
+                      END IF
+!$OMP CRITICAL
+                      DO j = js, je
+                         DO i = is, ie
+                            IF ( l_start(1)+hi <= i .AND. i <= l_end(1)+hi .AND. l_start(2)+hj <= j .AND. j <= l_end(2)+hj) THEN
+                               output_fields(out_num)%num_elements(sample) =&
+                                    & output_fields(out_num)%num_elements(sample) + l_end(3) - l_start(3) + 1
+                            END IF
+                         END DO
+                      END DO
+                      IF ( .NOT.phys_window ) THEN
+                         outer0: DO k = l_start(3), l_end(3)
+                            DO j=l_start(2)+hj, l_end(2)+hj
+                               DO i=l_start(1)+hi, l_end(1)+hi
+                                  IF ( field(i,j,k) /= missvalue ) THEN
+                                     output_fields(out_num)%count_0d(sample) = output_fields(out_num)%count_0d(sample) + weight1
+                                     EXIT outer0
+                                  END IF
+                               END DO
+                            END DO
+                         END DO outer0
+                      END IF
+!$OMP END CRITICAL
+                   ELSE IF ( reduced_k_range ) THEN
+                      if( numthreads>1 .AND. phys_window ) then
+                         ksr= l_start(3)
+                         ker= l_end(3)
+                         DO k = ksr, ker
+                            k1 = k - ksr + 1
+                            DO j=js, je
+                               DO i=is, ie
+                                  IF ( field(i-is+1+hi,j-js+1+hj,k) /= missvalue ) THEN
+                                     IF ( pow_value /= 1 ) THEN
+                                        output_fields(out_num)%buffer(i-hi,j-hj,k1,sample) =&
+                                             & output_fields(out_num)%buffer(i-hi,j-hj,k1,sample) +&
+                                             & (field(i-is+1+hi,j-js+1+hj,k) * weight1)**(pow_value)
+                                     ELSE
+                                        output_fields(out_num)%buffer(i-hi,j-hj,k1,sample) =&
+                                             & output_fields(out_num)%buffer(i-hi,j-hj,k1,sample) +&
+                                             & field(i-is+1+hi,j-js+1+hj,k) * weight1
+                                     END IF
+                                  ELSE
+                                     output_fields(out_num)%buffer(i-hi,j-hj,k1,sample) = missvalue
+                                  END IF
+                               END DO
+                            END DO
+                         END DO
+                      else
+!$OMP CRITICAL
+                         ksr= l_start(3)
+                         ker= l_end(3)
+                         DO k = ksr, ker
+                            k1 = k - ksr + 1
+                            DO j=js, je
+                               DO i=is, ie
+                                  IF ( field(i-is+1+hi,j-js+1+hj,k) /= missvalue ) THEN
+                                     IF ( pow_value /= 1 ) THEN
+                                        output_fields(out_num)%buffer(i-hi,j-hj,k1,sample) =&
+                                             & output_fields(out_num)%buffer(i-hi,j-hj,k1,sample) +&
+                                             & (field(i-is+1+hi,j-js+1+hj,k) * weight1)**(pow_value)
+                                     ELSE
+                                        output_fields(out_num)%buffer(i-hi,j-hj,k1,sample) =&
+                                             & output_fields(out_num)%buffer(i-hi,j-hj,k1,sample) +&
+                                             & field(i-is+1+hi,j-js+1+hj,k) * weight1
+                                     END IF
+                                  ELSE
+                                     output_fields(out_num)%buffer(i-hi,j-hj,k1,sample) = missvalue
+                                  END IF
+                               END DO
+                            END DO
+                         END DO
+!$OMP END CRITICAL
+                      END IF
+!$OMP CRITICAL
+                      outer3: DO k = ksr, ker
+                         k1=k-ksr+1
+                         DO j=f3, f4
+                            DO i=f1, f2
+                               IF ( field(i,j,k) /= missvalue ) THEN
+                                  output_fields(out_num)%count_0d(sample) = output_fields(out_num)%count_0d(sample) + weight1
+                                  EXIT outer3
+                               END IF
+                            END DO
+                         END DO
+                      END DO outer3
+!$OMP END CRITICAL
+                   ELSE
+                      IF ( debug_diag_manager ) THEN
+                         CALL update_bounds(out_num, is-hi, ie-hi, js-hj, je-hj, ks, ke)
+                         CALL check_out_of_bounds(out_num, diag_field_id, err_msg=err_msg_local)
+                         IF ( err_msg_local /= '' ) THEN
+                            IF ( fms_error_handler('diag_manager_mod::send_data_3d', err_msg_local, err_msg) ) THEN
+                               DEALLOCATE(oor_mask)
+                               RETURN
+                            END IF
+                         END IF
+                      END IF
+                      IF( numthreads > 1 .AND. phys_window ) then
+                         DO k=ks, ke
+                            DO j=js, je
+                               DO i=is, ie
+                                  IF ( field(i-is+1+hi,j-js+1+hj,k) /= missvalue )  THEN
+                                     IF ( pow_value /= 1 ) THEN
+                                        output_fields(out_num)%buffer(i-hi,j-hj,k,sample) =&
+                                             & output_fields(out_num)%buffer(i-hi,j-hj,k,sample) +&
+                                             & (field(i-is+1+hi,j-js+1+hj,k) * weight1)**(pow_value)
+                                     ELSE
+                                        output_fields(out_num)%buffer(i-hi,j-hj,k,sample) =&
+                                             & output_fields(out_num)%buffer(i-hi,j-hj,k,sample) +&
+                                             & field(i-is+1+hi,j-js+1+hj,k) * weight1
+                                     END IF
+                                  ELSE
+                                     output_fields(out_num)%buffer(i-hi,j-hj,k,sample) = missvalue
+                                  END IF
+                               END DO
+                            END DO
+                         END DO
+                      ELSE
+!$OMP CRITICAL
+                         DO k=ks, ke
+                            DO j=js, je
+                               DO i=is, ie
+                                  IF ( field(i-is+1+hi,j-js+1+hj,k) /= missvalue )  THEN
+                                     IF ( pow_value /= 1 ) THEN
+                                        output_fields(out_num)%buffer(i-hi,j-hj,k,sample) =&
+                                             & output_fields(out_num)%buffer(i-hi,j-hj,k,sample) +&
+                                             & (field(i-is+1+hi,j-js+1+hj,k) * weight1)**(pow_value)
+                                     ELSE
+                                        output_fields(out_num)%buffer(i-hi,j-hj,k,sample) =&
+                                             & output_fields(out_num)%buffer(i-hi,j-hj,k,sample) +&
+                                             & field(i-is+1+hi,j-js+1+hj,k) * weight1
+                                     END IF
+                                  ELSE
+                                     output_fields(out_num)%buffer(i-hi,j-hj,k,sample) = missvalue
+                                  END IF
+                               END DO
+                            END DO
+                         END DO
+!$OMP END CRITICAL
+                      END IF
+!$OMP CRITICAL
+                      outer1: DO k=ks, ke
+                         DO j=f3, f4
+                            DO i=f1, f2
+                               IF ( field(i,j,k) /= missvalue ) THEN
+                                  output_fields(out_num)%count_0d(sample) = output_fields(out_num)%count_0d(sample) + weight1
+                                  EXIT outer1
+                               END IF
+                            END DO
+                         END DO
+                      END DO outer1
+!$OMP END CRITICAL
+                   END IF
+                ELSE ! no missing value defined, No mask
+                   IF ( need_compute ) THEN
+                      IF( numthreads > 1 .AND. phys_window ) then
+                         DO j = js, je
+                            DO i = is, ie
+                               IF ( l_start(1)+hi <= i .AND. i <= l_end(1)+hi .AND. l_start(2)+hj <= j .AND. j <= l_end(2)+hj ) THEN
+                                  i1 = i-l_start(1)-hi+1
+                                  j1=  j-l_start(2)-hj+1
+                                  IF ( pow_value /= 1 ) THEN
+                                     output_fields(out_num)%buffer(i1,j1,:,sample)= output_fields(out_num)%buffer(i1,j1,:,sample) +&
+                                          & (field(i-is+1+hi,j-js+1+hj,l_start(3):l_end(3))*weight1)**(pow_value)
+                                  ELSE
+                                     output_fields(out_num)%buffer(i1,j1,:,sample)= output_fields(out_num)%buffer(i1,j1,:,sample) +&
+                                          & field(i-is+1+hi,j-js+1+hj,l_start(3):l_end(3))*weight1
+                               END IF
+                               END IF
+                            END DO
+                         END DO
+                      ELSE
+!$OMP CRITICAL
+                         DO j = js, je
+                            DO i = is, ie
+                               IF ( l_start(1)+hi <= i .AND. i <= l_end(1)+hi .AND. l_start(2)+hj <= j .AND. j <= l_end(2)+hj ) THEN
+                                  i1 = i-l_start(1)-hi+1
+                                  j1=  j-l_start(2)-hj+1
+                                  IF ( pow_value /= 1 ) THEN
+                                     output_fields(out_num)%buffer(i1,j1,:,sample)= output_fields(out_num)%buffer(i1,j1,:,sample) +&
+                                          & (field(i-is+1+hi,j-js+1+hj,l_start(3):l_end(3))*weight1)**(pow_value)
+                                  ELSE
+                                     output_fields(out_num)%buffer(i1,j1,:,sample)= output_fields(out_num)%buffer(i1,j1,:,sample) +&
+                                          & field(i-is+1+hi,j-js+1+hj,l_start(3):l_end(3))*weight1
+                               END IF
+                               END IF
+                            END DO
+                         END DO
+!$OMP END CRITICAL
+                      END IF
+
+!$OMP CRITICAL
+                      DO j = js, je
+                         DO i = is, ie
+                            IF ( l_start(1)+hi <= i .AND. i <= l_end(1)+hi .AND. l_start(2)+hj <= j .AND. j <= l_end(2)+hj ) THEN
+                               output_fields(out_num)%num_elements(sample) =&
+                                    & output_fields(out_num)%num_elements(sample)+l_end(3)-l_start(3)+1
+                            END IF
+                         END DO
+                      END DO
+!$OMP END CRITICAL
+                      ! Accumulate time average
+                   ELSE IF ( reduced_k_range ) THEN
+                      ksr= l_start(3)
+                      ker= l_end(3)
+                      IF( numthreads > 1 .AND. phys_window ) then
+                         IF ( pow_value /= 1 ) THEN
+                            output_fields(out_num)%buffer(is-hi:ie-hi,js-hj:je-hj,:,sample) =&
+                                 & output_fields(out_num)%buffer(is-hi:ie-hi,js-hj:je-hj,:,sample) + &
+                                 & (field(f1:f2,f3:f4,ksr:ker)*weight1)**(pow_value)
+                         ELSE
+                            output_fields(out_num)%buffer(is-hi:ie-hi,js-hj:je-hj,:,sample) =&
+                                 & output_fields(out_num)%buffer(is-hi:ie-hi,js-hj:je-hj,:,sample) + &
+                                 & field(f1:f2,f3:f4,ksr:ker)*weight1
+                         END IF
+                      ELSE
+!$OMP CRITICAL
+                         IF ( pow_value /= 1 ) THEN
+                            output_fields(out_num)%buffer(is-hi:ie-hi,js-hj:je-hj,:,sample) =&
+                                 & output_fields(out_num)%buffer(is-hi:ie-hi,js-hj:je-hj,:,sample) + &
+                                 & (field(f1:f2,f3:f4,ksr:ker)*weight1)**(pow_value)
+                         ELSE
+                            output_fields(out_num)%buffer(is-hi:ie-hi,js-hj:je-hj,:,sample) =&
+                                 & output_fields(out_num)%buffer(is-hi:ie-hi,js-hj:je-hj,:,sample) + &
+                                 & field(f1:f2,f3:f4,ksr:ker)*weight1
+                         END IF
+!$OMP END CRITICAL
+                      END IF
+                   ELSE
+                      IF ( debug_diag_manager ) THEN
+                         CALL update_bounds(out_num, is-hi, ie-hi, js-hj, je-hj, ks, ke)
+                         CALL check_out_of_bounds(out_num, diag_field_id, err_msg=err_msg_local)
+                         IF ( err_msg_local /= '' ) THEN
+                            IF ( fms_error_handler('diag_manager_mod::send_data_3d', err_msg_local, err_msg) ) THEN
+                               DEALLOCATE(oor_mask)
+                               RETURN
+                            END IF
+                         END IF
+                      END IF
+                      IF( numthreads > 1 .AND. phys_window ) then
+                         IF ( pow_value /= 1 ) THEN
+                            output_fields(out_num)%buffer(is-hi:ie-hi,js-hj:je-hj,ks:ke,sample) =&
+                                 & output_fields(out_num)%buffer(is-hi:ie-hi,js-hj:je-hj,ks:ke,sample) +&
+                                 & (field(f1:f2,f3:f4,ks:ke)*weight1)**(pow_value)
+                         ELSE
+                            output_fields(out_num)%buffer(is-hi:ie-hi,js-hj:je-hj,ks:ke,sample) =&
+                                 & output_fields(out_num)%buffer(is-hi:ie-hi,js-hj:je-hj,ks:ke,sample) +&
+                                 & field(f1:f2,f3:f4,ks:ke)*weight1
+                         END IF
+                      ELSE
+!$OMP CRITICAL
+                         IF ( pow_value /= 1 ) THEN
+                            output_fields(out_num)%buffer(is-hi:ie-hi,js-hj:je-hj,ks:ke,sample) =&
+                                 & output_fields(out_num)%buffer(is-hi:ie-hi,js-hj:je-hj,ks:ke,sample) +&
+                                 & (field(f1:f2,f3:f4,ks:ke)*weight1)**(pow_value)
+                         ELSE
+                            output_fields(out_num)%buffer(is-hi:ie-hi,js-hj:je-hj,ks:ke,sample) =&
+                                 & output_fields(out_num)%buffer(is-hi:ie-hi,js-hj:je-hj,ks:ke,sample) +&
+                                 & field(f1:f2,f3:f4,ks:ke)*weight1
+                         END IF
+!$OMP END CRITICAL
+                      END IF
+                   END IF
+!$OMP CRITICAL
+                   IF ( .NOT.phys_window ) output_fields(out_num)%count_0d(sample) =&
+                        & output_fields(out_num)%count_0d(sample) + weight1
+!$OMP END CRITICAL
+                END IF
+             END IF ! if mask present
+          END IF  !if mask_variant
+!$OMP CRITICAL
+          IF ( .NOT.need_compute .AND. .NOT.reduced_k_range )&
+               & output_fields(out_num)%num_elements(sample) =&
+               & output_fields(out_num)%num_elements(sample) + (ie-is+1)*(je-js+1)*(ke-ks+1)
+          IF ( reduced_k_range ) &
+               & output_fields(out_num)%num_elements(sample) = output_fields(out_num)%num_elements(sample) +&
+               & (ie-is+1)*(je-js+1)*(ker-ksr+1)
+!$OMP END CRITICAL
+             ! Add processing for Max and Min
+       ELSE IF ( time_max ) THEN
+          IF ( PRESENT(mask) ) THEN
+             IF ( need_compute ) THEN
+                DO k = l_start(3), l_end(3)
+                   k1 = k - l_start(3) + 1
+                   DO j = js, je
+                      DO i = is, ie
+                         IF ( l_start(1)+hi <= i .AND. i <= l_end(1)+hi .AND. l_start(2)+hj <= j .AND. j <= l_end(2)+hj ) THEN
+                            i1 = i-l_start(1)-hi+1
+                            j1=  j-l_start(2)-hj+1
+                            IF ( mask(i-is+1+hi,j-js+1+hj,k) .AND.&
+                                 & field(i-is+1+hi,j-js+1+hj,k)>output_fields(out_num)%buffer(i1,j1,k1,sample)) THEN
+                               output_fields(out_num)%buffer(i1,j1,k1,sample) = field(i-is+1+hi,j-js+1+hj,k)
+                            END IF
+                         END IF
+                      END DO
+                   END DO
+                END DO
+                ! Maximum time value with masking
+             ELSE IF ( reduced_k_range ) THEN
+                ksr = l_start(3)
+                ker = l_end(3)
+                WHERE ( mask(f1:f2,f3:f4,ksr:ker) .AND. &
+                     & field(f1:f2,f3:f4,ksr:ker) > output_fields(out_num)%buffer(is-hi:ie-hi,js-hj:je-hj,:,sample))&
+                     & output_fields(out_num)%buffer(is-hi:ie-hi,js-hj:je-hj,:,sample) = field(f1:f2,f3:f4,ksr:ker)
+             ELSE
+                IF ( debug_diag_manager ) THEN
+                   CALL update_bounds(out_num, is-hi, ie-hi, js-hj, je-hj, ks, ke)
+                   CALL check_out_of_bounds(out_num, diag_field_id, err_msg=err_msg_local)
+                   IF ( err_msg_local /= '' ) THEN
+                      IF ( fms_error_handler('diag_manager_mod::send_data_3d', err_msg_local, err_msg) ) THEN
+                         DEALLOCATE(oor_mask)
+                         RETURN
+                      END IF
+                   END IF
+                END IF
+                WHERE ( mask(f1:f2,f3:f4,ks:ke) .AND.&
+                     & field(f1:f2,f3:f4,ks:ke)>output_fields(out_num)%buffer(is-hi:ie-hi,js-hj:je-hj,ks:ke,sample))&
+                     & output_fields(out_num)%buffer(is-hi:ie-hi,js-hj:je-hj,ks:ke,sample) = field(f1:f2,f3:f4,ks:ke)
+             END IF
+          ELSE
+             IF ( need_compute ) THEN
+                DO k = l_start(3), l_end(3)
+                   k1 = k - l_start(3) + 1
+                   DO j = js, je
+                      DO i = is, ie
+                         IF(l_start(1)+hi <= i .AND. i <= l_end(1)+hi .AND. l_start(2)+hj <= j .AND. j <= l_end(2)+hj ) THEN
+                            i1 = i-l_start(1)-hi+1
+                            j1 =  j-l_start(2)-hj+1
+                            IF ( field(i-is+1+hi,j-js+1+hj,k) > output_fields(out_num)%buffer(i1,j1,k1,sample) ) THEN
+                               output_fields(out_num)%buffer(i1,j1,k1,sample) = field(i-is+1+hi,j-js+1+hj,k)
+                            END IF
+                         END IF
+                      END DO
+                   END DO
+                END DO
+                ! Maximum time value
+             ELSE IF ( reduced_k_range ) THEN
+                ksr = l_start(3)
+                ker = l_end(3)
+                WHERE ( field(f1:f2,f3:f4,ksr:ker) > output_fields(out_num)%buffer(is-hi:ie-hi,js-hj:je-hj,:,sample) ) &
+                     & output_fields(out_num)%buffer(is-hi:ie-hi,js-hj:je-hj,:,sample) = field(f1:f2,f3:f4,ksr:ker)
+             ELSE
+                IF ( debug_diag_manager ) THEN
+                   CALL update_bounds(out_num, is-hi, ie-hi, js-hj, je-hj, ks, ke)
+                   CALL check_out_of_bounds(out_num, diag_field_id, err_msg=err_msg_local)
+                   IF ( err_msg_local /= '' ) THEN
+                      IF ( fms_error_handler('diag_manager_mod::send_data_3d', err_msg_local, err_msg) ) THEN
+                         DEALLOCATE(oor_mask)
+                         RETURN
+                      END IF
+                   END IF
+                END IF
+                WHERE ( field(f1:f2,f3:f4,ks:ke) > output_fields(out_num)%buffer(is-hi:ie-hi,js-hj:je-hj,ks:ke,sample) ) &
+                     & output_fields(out_num)%buffer(is-hi:ie-hi,js-hj:je-hj,ks:ke,sample) = field(f1:f2,f3:f4,ks:ke)
+             END IF
+          END IF
+          output_fields(out_num)%count_0d(sample) = 1
+       ELSE IF ( time_min ) THEN
+          IF ( PRESENT(mask) ) THEN
+             IF ( need_compute ) THEN
+                DO k = l_start(3), l_end(3)
+                   k1 = k - l_start(3) + 1
+                   DO j = js, je
+                      DO i = is, ie
+                         IF ( l_start(1)+hi <= i .AND. i <= l_end(1)+hi .AND. l_start(2)+hj <= j .AND. j <= l_end(2)+hj ) THEN
+                            i1 = i-l_start(1)-hi+1
+                            j1 =  j-l_start(2)-hj+1
+                            IF ( mask(i-is+1+hi,j-js+1+hj,k) .AND.&
+                                 & field(i-is+1+hi,j-js+1+hj,k) < output_fields(out_num)%buffer(i1,j1,k1,sample) ) THEN
+                               output_fields(out_num)%buffer(i1,j1,k1,sample) = field(i-is+1+hi,j-js+1+hj,k)
+                            END IF
+                         END IF
+                      END DO
+                   END DO
+                END DO
+                ! Minimum time value with masking
+             ELSE IF ( reduced_k_range ) THEN
+                ksr= l_start(3)
+                ker= l_end(3)
+                WHERE ( mask(f1:f2,f3:f4,ksr:ker) .AND.&
+                     & field(f1:f2,f3:f4,ksr:ker) < output_fields(out_num)%buffer(is-hi:ie-hi,js-hj:je-hj,:,sample)) &
+                     & output_fields(out_num)%buffer(is-hi:ie-hi,js-hj:je-hj,:,sample) = field(f1:f2,f3:f4,ksr:ker)
+             ELSE
+                IF ( debug_diag_manager ) THEN
+                   CALL update_bounds(out_num, is-hi, ie-hi, js-hj, je-hj, ks, ke)
+                   CALL check_out_of_bounds(out_num, diag_field_id, err_msg=err_msg_local)
+                   IF ( err_msg_local /= '' ) THEN
+                      IF ( fms_error_handler('diag_manager_mod::send_data_3d', err_msg_local, err_msg) ) THEN
+                         DEALLOCATE(oor_mask)
+                         RETURN
+                      END IF
+                   END IF
+                END IF
+                WHERE ( mask(f1:f2,f3:f4,ks:ke) .AND.&
+                     & field(f1:f2,f3:f4,ks:ke) < output_fields(out_num)%buffer(is-hi:ie-hi,js-hj:je-hj,ks:ke,sample) ) &
+                     & output_fields(out_num)%buffer(is-hi:ie-hi,js-hj:je-hj,ks:ke,sample) = field(f1:f2,f3:f4,ks:ke)
+             END IF
+          ELSE
+             IF ( need_compute ) THEN
+                DO k = l_start(3), l_end(3)
+                   k1 = k - l_start(3) + 1
+                   DO j = js, je
+                      DO i = is, ie
+                         IF ( l_start(1)+hi <=i.AND.i<=l_end(1)+hi.AND.l_start(2)+hj<=j.AND.j<=l_end(2)+hj) THEN
+                            i1 = i-l_start(1)-hi+1
+                            j1=  j-l_start(2)-hj+1
+                            IF ( field(i-is+1+hi,j-js+1+hj,k) < output_fields(out_num)%buffer(i1,j1,k1,sample) ) THEN
+                               output_fields(out_num)%buffer(i1,j1,k1,sample) = field(i-is+1+hi,j-js+1+hj,k)
+                            END IF
+                         END IF
+                      END DO
+                   END DO
+                END DO
+                ! Minimum time value
+             ELSE IF ( reduced_k_range ) THEN
+                ksr= l_start(3)
+                ker= l_end(3)
+                WHERE ( field(f1:f2,f3:f4,ksr:ker) < output_fields(out_num)%buffer(is-hi:ie-hi,js-hj:je-hj,:,sample) ) &
+                     output_fields(out_num)%buffer(is-hi:ie-hi,js-hj:je-hj,:,sample) = field(f1:f2,f3:f4,ksr:ker)
+             ELSE
+                IF ( debug_diag_manager ) THEN
+                   CALL update_bounds(out_num, is-hi, ie-hi, js-hj, je-hj, ks, ke)
+                   CALL check_out_of_bounds(out_num, diag_field_id, err_msg=err_msg_local)
+                   IF ( err_msg_local /= '' ) THEN
+                      IF ( fms_error_handler('diag_manager_mod::send_data_3d', err_msg_local, err_msg) ) THEN
+                         DEALLOCATE(oor_mask)
+                         RETURN
+                      END IF
+                   END IF
+                END IF
+                WHERE ( field(f1:f2,f3:f4,ks:ke) < output_fields(out_num)%buffer(is-hi:ie-hi,js-hj:je-hj,ks:ke,sample) )&
+                     & output_fields(out_num)%buffer(is-hi:ie-hi,js-hj:je-hj,ks:ke,sample) = field(f1:f2,f3:f4,ks:ke)
+             END IF
+          END IF
+          output_fields(out_num)%count_0d(sample) = 1
+       ELSE IF ( time_sum ) THEN
+          IF ( PRESENT(mask) ) THEN
+             IF ( need_compute ) THEN
+                DO k = l_start(3), l_end(3)
+                   k1 = k - l_start(3) + 1
+                   DO j = js, je
+                      DO i = is, ie
+                         IF ( l_start(1)+hi <= i .AND. i <= l_end(1)+hi .AND. l_start(2)+hj <= j .AND. j <= l_end(2)+hj ) THEN
+                            i1 = i-l_start(1)-hi+1
+                            j1 =  j-l_start(2)-hj+1
+                            IF ( mask(i-is+1+hi,j-js+1+hj,k) ) THEN
+                               output_fields(out_num)%buffer(i1,j1,k1,sample) = &
+                                    output_fields(out_num)%buffer(i1,j1,k1,sample) + &
+                                    field(i-is+1+hi,j-js+1+hj,k)
+                            END IF
+                         END IF
+                      END DO
+                   END DO
+                END DO
+                ! Minimum time value with masking
+             ELSE IF ( reduced_k_range ) THEN
+                ksr= l_start(3)
+                ker= l_end(3)
+                output_fields(out_num)%buffer(is-hi:ie-hi,js-hj:je-hj,:,sample) = &
+                     &   output_fields(out_num)%buffer(is-hi:ie-hi,js-hj:je-hj,:,sample) + &
+                     &   field(f1:f2,f3:f4,ksr:ker)
+             ELSE
+                IF ( debug_diag_manager ) THEN
+                   CALL update_bounds(out_num, is-hi, ie-hi, js-hj, je-hj, ks, ke)
+                   CALL check_out_of_bounds(out_num, diag_field_id, err_msg=err_msg_local)
+                   IF ( err_msg_local /= '' ) THEN
+                      IF ( fms_error_handler('diag_manager_mod::send_data_3d', err_msg_local, err_msg) ) THEN
+                         DEALLOCATE(oor_mask)
+                         RETURN
+                      END IF
+                   END IF
+                END IF
+                WHERE ( mask(f1:f2,f3:f4,ks:ke) ) &
+                     & output_fields(out_num)%buffer(is-hi:ie-hi,js-hj:je-hj,ks:ke,sample) = &
+                     &  output_fields(out_num)%buffer(is-hi:ie-hi,js-hj:je-hj,ks:ke,sample) + &
+                     &  field(f1:f2,f3:f4,ks:ke)
+             END IF
+          ELSE
+             IF ( need_compute ) THEN
+                DO k = l_start(3), l_end(3)
+                   k1 = k - l_start(3) + 1
+                   DO j = js, je
+                      DO i = is, ie
+                         IF ( l_start(1)+hi <=i.AND.i<=l_end(1)+hi.AND.l_start(2)+hj<=j.AND.j<=l_end(2)+hj) THEN
+                            i1 = i-l_start(1)-hi+1
+                            j1=  j-l_start(2)-hj+1
+                            output_fields(out_num)%buffer(i1,j1,k1,sample) = &
+                               &    output_fields(out_num)%buffer(i1,j1,k1,sample) + &
+                               &    field(i-is+1+hi,j-js+1+hj,k)
+                         END IF
+                      END DO
+                   END DO
+                END DO
+             ELSE IF ( reduced_k_range ) THEN
+                ksr= l_start(3)
+                ker= l_end(3)
+                output_fields(out_num)%buffer(is-hi:ie-hi,js-hj:je-hj,:,sample) = &
+                     &  output_fields(out_num)%buffer(is-hi:ie-hi,js-hj:je-hj,:,sample) + &
+                     &  field(f1:f2,f3:f4,ksr:ker)
+             ELSE
+                IF ( debug_diag_manager ) THEN
+                   CALL update_bounds(out_num, is-hi, ie-hi, js-hj, je-hj, ks, ke)
+                   CALL check_out_of_bounds(out_num, diag_field_id, err_msg=err_msg_local)
+                   IF ( err_msg_local /= '' ) THEN
+                      IF ( fms_error_handler('diag_manager_mod::send_data_3d', err_msg_local, err_msg) ) THEN
+                         DEALLOCATE(oor_mask)
+                         RETURN
+                      END IF
+                   END IF
+                END IF
+                output_fields(out_num)%buffer(is-hi:ie-hi,js-hj:je-hj,ks:ke,sample) = &
+                &    output_fields(out_num)%buffer(is-hi:ie-hi,js-hj:je-hj,ks:ke,sample) + &
+                &    field(f1:f2,f3:f4,ks:ke)
+             END IF
+          END IF
+          output_fields(out_num)%count_0d(sample) = 1
+       ELSE  ! ( not average, not min, not max, not sum )
+          output_fields(out_num)%count_0d(sample) = 1
+          IF ( need_compute ) THEN
+             DO j = js, je
+                DO i = is, ie
+                   IF ( l_start(1)+hi <= i .AND. i <= l_end(1)+hi .AND. l_start(2)+hj <= j .AND. j <= l_end(2)+hj ) THEN
+                      i1 = i-l_start(1)-hi+1
+                      j1 = j-l_start(2)-hj+1
+                      output_fields(out_num)%buffer(i1,j1,:,sample) = field(i-is+1+hi,j-js+1+hj,l_start(3):l_end(3))
+                   END IF
+                END DO
+             END DO
+             ! instantaneous output
+          ELSE IF ( reduced_k_range ) THEN
+             ksr = l_start(3)
+             ker = l_end(3)
+             output_fields(out_num)%buffer(is-hi:ie-hi,js-hj:je-hj,:,sample) = field(f1:f2,f3:f4,ksr:ker)
+          ELSE
+             IF ( debug_diag_manager ) THEN
+                CALL update_bounds(out_num, is-hi, ie-hi, js-hj, je-hj, ks, ke)
+                CALL check_out_of_bounds(out_num, diag_field_id, err_msg=err_msg_local)
+                IF ( err_msg_local /= '' ) THEN
+                   IF ( fms_error_handler('diag_manager_mod::send_data_3d', err_msg_local, err_msg) ) THEN
+                      DEALLOCATE(oor_mask)
+                      RETURN
+                   END IF
+                END IF
+             END IF
+             output_fields(out_num)%buffer(is-hi:ie-hi,js-hj:je-hj,ks:ke,sample) = field(f1:f2,f3:f4,ks:ke)
+          END IF
+
+          IF ( PRESENT(mask) .AND. missvalue_present ) THEN
+             IF ( need_compute ) THEN
+                DO k = l_start(3), l_end(3)
+                   k1 = k - l_start(3) + 1
+                   DO j = js, je
+                      DO i = is, ie
+                         IF ( l_start(1)+hi <= i .AND. i <= l_end(1)+hi .AND. l_start(2)+hj <= j .AND. j <= l_end(2)+hj ) THEN
+                            i1 = i-l_start(1)-hi+1
+                            j1 =  j-l_start(2)-hj+1
+                            IF ( .NOT.mask(i-is+1+hi,j-js+1+hj,k) )&
+                                 & output_fields(out_num)%buffer(i1,j1,k1,sample) = missvalue
+                         END IF
+                      END DO
+                   END DO
+                END DO
+             ELSE IF ( reduced_k_range ) THEN
+                ksr= l_start(3)
+                ker= l_end(3)
+                DO k=ksr, ker
+                   k1= k - ksr + 1
+                   DO j=js, je
+                      DO i=is, ie
+                         IF ( .NOT.mask(i-is+1+hi,j-js+1+hj,k) ) &
+                              & output_fields(out_num)%buffer(i-hi,j-hj,k1,sample)= missvalue
+                      END DO
+                   END DO
+                END DO
+             ELSE
+                DO k=ks, ke
+                   DO j=js, je
+                      DO i=is, ie
+                         IF ( .NOT.mask(i-is+1+hi,j-js+1+hj,k) )&
+                              & output_fields(out_num)%buffer(i-hi,j-hj,k,sample)= missvalue
+                      END DO
+                   END DO
+                END DO
+             END IF
+          END IF
+       END IF !average
+       end select
 
        IF ( output_fields(out_num)%static .AND. .NOT.need_compute .AND. debug_diag_manager ) THEN
           CALL check_bounds_are_exact_static(out_num, diag_field_id, err_msg=err_msg_local)
@@ -3059,6 +4199,8 @@ CONTAINS
 
        ! If rmask and missing value present, then insert missing value
        IF ( PRESENT(rmask) .AND. missvalue_present ) THEN
+          select type (rmask)
+          type is (real(r4_kind))
           IF ( need_compute ) THEN
              DO k = l_start(3), l_end(3)
                 k1 = k - l_start(3) + 1
@@ -3095,6 +4237,44 @@ CONTAINS
                 END DO
              END DO
           END IF
+          type is (real(r8_kind))
+          IF ( need_compute ) THEN
+             DO k = l_start(3), l_end(3)
+                k1 = k - l_start(3) + 1
+                DO j = js, je
+                   DO i = is, ie
+                      IF ( l_start(1)+hi <= i .AND. i <= l_end(1)+hi .AND. l_start(2)+hj <= j .AND. j <= l_end(2)+hj ) THEN
+                         i1 = i-l_start(1)-hi+1
+                         j1 =  j-l_start(2)-hj+1
+                         IF ( rmask(i-is+1+hi,j-js+1+hj,k) < 0.5 ) &
+                              & output_fields(out_num)%buffer(i1,j1,k1,sample) = missvalue
+                      END IF
+                   END DO
+                END DO
+             END DO
+          ELSE IF ( reduced_k_range ) THEN
+             ksr= l_start(3)
+             ker= l_end(3)
+             DO k= ksr, ker
+                k1 = k - ksr + 1
+                DO j=js, je
+                   DO i=is, ie
+                      IF ( rmask(i-is+1+hi,j-js+1+hj,k) < 0.5 ) &
+                           & output_fields(out_num)%buffer(i-hi,j-hj,k1,sample)= missvalue
+                   END DO
+                END DO
+             END DO
+          ELSE
+             DO k=ks, ke
+                DO j=js, je
+                   DO i=is, ie
+                      IF ( rmask(i-is+1+hi,j-js+1+hj,k) < 0.5 ) &
+                           & output_fields(out_num)%buffer(i-hi,j-hj,k,sample)= missvalue
+                   END DO
+                END DO
+             END DO
+          END IF
+          end select
        END IF
 
     END DO num_out_fields
