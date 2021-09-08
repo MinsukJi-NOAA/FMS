@@ -373,8 +373,8 @@ CONTAINS
     CHARACTER(len=*), INTENT(in) :: module_name, field_name
     TYPE(time_type), OPTIONAL, INTENT(in) :: init_time
     CHARACTER(len=*), OPTIONAL, INTENT(in) :: long_name, units, standard_name
-    REAL, OPTIONAL, INTENT(in) :: missing_value
-    REAL,  DIMENSION(2), OPTIONAL, INTENT(in) :: RANGE
+    CLASS(*), OPTIONAL, INTENT(in) :: missing_value
+    CLASS(*), DIMENSION(2), OPTIONAL, INTENT(in) :: RANGE
     LOGICAL, OPTIONAL, INTENT(in) :: do_not_log !< if TRUE, field information is not logged
     CHARACTER(len=*), OPTIONAL, INTENT(out):: err_msg
     INTEGER, OPTIONAL, INTENT(in) :: area, volume
@@ -403,7 +403,8 @@ CONTAINS
     INTEGER, INTENT(in) :: axes(:)
     TYPE(time_type), INTENT(in) :: init_time
     CHARACTER(len=*), OPTIONAL, INTENT(in) :: long_name, units, standard_name
-    REAL, OPTIONAL, INTENT(in) :: missing_value, RANGE(2)
+    CLASS(*), OPTIONAL, INTENT(in) :: missing_value
+    CLASS(*), DIMENSION(2), OPTIONAL, INTENT(in) :: RANGE
     LOGICAL, OPTIONAL, INTENT(in) :: mask_variant,verbose
     LOGICAL, OPTIONAL, INTENT(in) :: do_not_log !< if TRUE, field info is not logged
     CHARACTER(len=*), OPTIONAL, INTENT(out):: err_msg
@@ -590,8 +591,8 @@ CONTAINS
     CHARACTER(len=*), INTENT(in) :: module_name, field_name
     INTEGER, DIMENSION(:), INTENT(in) :: axes
     CHARACTER(len=*), OPTIONAL, INTENT(in) :: long_name, units, standard_name
-    REAL, OPTIONAL, INTENT(in) :: missing_value
-    REAL, DIMENSION(2), OPTIONAL, INTENT(in) :: range
+    CLASS(*), OPTIONAL, INTENT(in) :: missing_value
+    CLASS(*), DIMENSION(2), OPTIONAL, INTENT(in) :: range
     LOGICAL, OPTIONAL, INTENT(in) :: mask_variant
     LOGICAL, OPTIONAL, INTENT(in) :: DYNAMIC
     LOGICAL, OPTIONAL, INTENT(in) :: do_not_log !< if TRUE, field information is not logged
@@ -604,7 +605,9 @@ CONTAINS
     INTEGER,          OPTIONAL, INTENT(in) :: volume !< Field ID for the volume field associated with this field
     CHARACTER(len=*), OPTIONAL, INTENT(in) :: realm !< String to set as the value to the modeling_realm attribute
 
-    REAL :: missing_value_use
+    real(r4_kind), allocatable :: missing_value_use_r4
+    real(r8_kind), allocatable :: missing_value_use_r8
+    !REAL :: missing_value_use
     INTEGER :: field, num_axes, j, out_num, k
     INTEGER, DIMENSION(3) :: siz, local_siz, local_start, local_end ! indices of local domain of global axes
     INTEGER :: tile, file_num
@@ -620,11 +623,22 @@ CONTAINS
 
     ! Check if OPTIONAL parameters were passed in.
     IF ( PRESENT(missing_value) ) THEN
-       IF ( use_cmor ) THEN
-          missing_value_use = CMOR_MISSING_VALUE
-       ELSE
-          missing_value_use = missing_value
-       END IF
+       select type (missing_value)
+       type is (real(r4_kind))
+          allocate(missing_value_use_r4)
+          IF ( use_cmor ) THEN
+             missing_value_use_r4 = CMOR_MISSING_VALUE
+          ELSE
+             missing_value_use_r4 = missing_value
+          END IF
+       type is (real(r8_kind))
+          allocate(missing_value_use_r8)
+          IF ( use_cmor ) THEN
+             missing_value_use_r8 = CMOR_MISSING_VALUE
+          ELSE
+             missing_value_use_r8 = missing_value
+          END IF
+       end select
     END IF
 
     IF ( PRESENT(mask_variant) ) THEN
@@ -763,16 +777,31 @@ CONTAINS
     END IF
 
     IF ( PRESENT(missing_value) ) THEN
-       input_fields(field)%missing_value = missing_value_use
-       input_fields(field)%missing_value_present = .TRUE.
+       select type (missing_value)
+       type is (real(r4_kind)
+          input_fields(field)%missing_value = missing_value_use_r4
+          input_fields(field)%missing_value_present = .TRUE.
+          deallocate(missing_value_use_r4)
+       type is (real(r8_kind)
+          input_fields(field)%missing_value = missing_value_use_r8
+          input_fields(field)%missing_value_present = .TRUE.
+          deallocate(missing_value_use_r8)
+       end select
     ELSE
        input_fields(field)%missing_value_present = .FALSE.
     END IF
 
     IF ( PRESENT(range) ) THEN
-       input_fields(field)%range = range
-       ! don't use the range if it is not a valid range
-       input_fields(field)%range_present = range(2) .gt. range(1)
+       select type (range)
+       type is (real(r4_kind))
+          input_fields(field)%range = range
+          ! don't use the range if it is not a valid range
+          input_fields(field)%range_present = range(2) .gt. range(1)
+       type is (real(r8_kind))
+          input_fields(field)%range = range
+          ! don't use the range if it is not a valid range
+          input_fields(field)%range_present = range(2) .gt. range(1)
+       end select
     ELSE
        input_fields(field)%range = (/ 1., 0. /)
        input_fields(field)%range_present = .FALSE.
@@ -4285,12 +4314,13 @@ CONTAINS
   !> @return true if send is successful
   LOGICAL FUNCTION send_tile_averaged_data1d ( id, field, area, time, mask )
     INTEGER, INTENT(in) :: id  !< id od the diagnostic field
-    REAL, INTENT(in) :: field(:,:) !< field to average and send
-    REAL, INTENT(in) :: area (:,:) !< area of tiles (== averaging weights), arbitrary units
+    CLASS(*), INTENT(in) :: field(:,:) !< field to average and send
+    CLASS(*), INTENT(in) :: area (:,:) !< area of tiles (== averaging weights), arbitrary units
     TYPE(time_type), INTENT(in)  :: time !< current time
     LOGICAL, INTENT(in),OPTIONAL :: mask (:,:) !< land mask
 
-    REAL, DIMENSION(SIZE(field,1)) :: out(SIZE(field,1))
+    real(r4_kind), dimension(:), allocatable :: out_r4
+    real(r8_kind), dimension(:), allocatable :: out_r8
 
     ! If id is < 0 it means that this field is not registered, simply return
     IF ( id <= 0 ) THEN
@@ -4298,21 +4328,39 @@ CONTAINS
        RETURN
     END IF
 
-    CALL average_tiles1d (id, field, area, mask, out)
-    send_tile_averaged_data1d = send_data(id, out, time=time, mask=ANY(mask,DIM=2))
+    select type (field)
+    type is (real(r4_kind))
+       select type (area)
+       type is (real(r4_kind))
+          allocate(out_r4(size(field,1)))
+          CALL average_tiles1d (id, field, area, mask, out_r4)
+          send_tile_averaged_data1d = send_data(id, out_r4, time=time, mask=ANY(mask,DIM=2))
+          deallocate(out_r4)
+       end select
+    type is (real(r8_kind))
+       select type (area)
+       type is (real(r8_kind))
+          allocate(out_r8(size(field,1)))
+          CALL average_tiles1d (id, field, area, mask, out_r8)
+          send_tile_averaged_data1d = send_data(id, out_r8, time=time, mask=ANY(mask,DIM=2))
+          deallocate(out_r8)
+       end select
+    end select
   END FUNCTION send_tile_averaged_data1d
 
   !> @brief Calculates average for a field with the given area and land mask
   SUBROUTINE average_tiles1d(diag_field_id, x, area, mask, out)
     INTEGER, INTENT(in) :: diag_field_id
-    REAL, DIMENSION(:,:), INTENT(in) :: x !< (ug_index, tile) field to average
-    REAL, DIMENSION(:,:), INTENT(in) :: area !< (ug_index, tile) fractional area
+    CLASS(*), DIMENSION(:,:), INTENT(in) :: x !< (ug_index, tile) field to average
+    CLASS(*), DIMENSION(:,:), INTENT(in) :: area !< (ug_index, tile) fractional area
     LOGICAL, DIMENSION(:,:), INTENT(in) :: mask !< (ug_index, tile) land mask
-    REAL, DIMENSION(:), INTENT(out) :: out !< (ug_index) result of averaging
+    CLASS(*), DIMENSION(:), INTENT(out) :: out !< (ug_index) result of averaging
 
     INTEGER  :: it !< iterator over tile number
-    REAL, DIMENSION(SIZE(x,1)) :: s !< area accumulator
-    REAL :: local_missing_value
+    real(r4_kind), dimension(:), allocatable :: s_r4 !< area accumulator
+    real(r8_kind), dimension(:), allocatable :: s_r8 !< area accumulator
+    real(r4_kind), allocatable :: local_missing_value_r4
+    real(r8_kind), allocatable :: local_missing_value_r8
 
     ! # FATAL if diag_field_id is less than 0, indicates field was not in diag_table.
     ! The calling functions should not have passed in an invalid diag_field_id
@@ -4324,40 +4372,90 @@ CONTAINS
             & "diag_field_id less than 0.  Contact developers.", FATAL)
     END IF
 
-    ! Initialize local_missing_value
-    IF ( input_fields(diag_field_id)%missing_value_present ) THEN
-       local_missing_value = input_fields(diag_field_id)%missing_value
-    ELSE
-       local_missing_value = 0.0
-    END IF
+    select type (x)
+    type is (real(r4_kind))
+       select type (area)
+       type is (real(r4_kind))
+          select type (out)
+          type is (real(r4_kind))
+             allocate(s_r4(size(x,1)))
+             allocate(local_missing_value_r4)
 
-    ! Initialize s and out to zero.
-    s(:) = 0.0
-    out(:) = 0.0
+             ! Initialize local_missing_value
+             IF ( input_fields(diag_field_id)%missing_value_present ) THEN
+                local_missing_value_r4 = input_fields(diag_field_id)%missing_value
+             ELSE
+                local_missing_value_r4 = 0.0
+             END IF
 
-    DO it = 1, SIZE(area,dim=2)
-       WHERE ( mask(:,it) )
-          out(:) = out(:) + x(:,it)*area(:,it)
-          s(:) = s(:) + area(:,it)
-       END WHERE
-    END DO
+             ! Initialize s and out to zero.
+             s_r4(:) = 0.0
+             out(:) = 0.0
 
-    WHERE ( s(:) > 0 )
-       out(:) = out(:)/s(:)
-    ELSEWHERE
-       out(:) = local_missing_value
-    END WHERE
+             DO it = 1, SIZE(area,dim=2)
+                WHERE ( mask(:,it) )
+                   out(:) = out(:) + x(:,it)*area(:,it)
+                   s_r4(:) = s_r4(:) + area(:,it)
+                END WHERE
+             END DO
+
+             WHERE ( s_r4(:) > 0 )
+                out(:) = out(:)/s_r4(:)
+             ELSEWHERE
+                out(:) = local_missing_value_r4
+             END WHERE
+             deallocate(s_r4)
+             deallocate(local_missing_value_r4)
+          end select
+       end select
+    type is (real(r8_kind))
+       select type (area)
+       type is (real(r8_kind))
+          select type (out)
+          type is (real(r8_kind))
+             allocate(s_r8(size(x,1)))
+             allocate(local_missing_value_r8)
+
+             ! Initialize local_missing_value
+             IF ( input_fields(diag_field_id)%missing_value_present ) THEN
+                local_missing_value_r8 = input_fields(diag_field_id)%missing_value
+             ELSE
+                local_missing_value_r8 = 0.0
+             END IF
+
+             ! Initialize s and out to zero.
+             s_r8(:) = 0.0
+             out(:) = 0.0
+
+             DO it = 1, SIZE(area,dim=2)
+                WHERE ( mask(:,it) )
+                   out(:) = out(:) + x(:,it)*area(:,it)
+                   s_r8(:) = s_r8(:) + area(:,it)
+                END WHERE
+             END DO
+
+             WHERE ( s_r8(:) > 0 )
+                out(:) = out(:)/s_r8(:)
+             ELSEWHERE
+                out(:) = local_missing_value_r8
+             END WHERE
+             deallocate(s_r8)
+             deallocate(local_missing_value_r8)
+          end select
+       end select
+    end select
   END SUBROUTINE average_tiles1d
 
   !> @return true if send is successful
   LOGICAL FUNCTION send_tile_averaged_data2d ( id, field, area, time, mask )
     INTEGER, INTENT(in) :: id  !< id od the diagnostic field
-    REAL, INTENT(in) :: field(:,:,:) !< field to average and send
-    REAL, INTENT(in) :: area (:,:,:) !< area of tiles (== averaging weights), arbitrary units
+    CLASS(*), INTENT(in) :: field(:,:,:) !< field to average and send
+    CLASS(*), INTENT(in) :: area (:,:,:) !< area of tiles (== averaging weights), arbitrary units
     TYPE(time_type), INTENT(in)  :: time !< current time
     LOGICAL, INTENT(in),OPTIONAL :: mask (:,:,:) !< land mask
 
-    REAL, DIMENSION(SIZE(field,1),SIZE(field,2)) :: out(SIZE(field,1), SIZE(field,2))
+    real(r4_kind), dimension(:,:), allocatable :: out_r4
+    real(r8_kind), dimension(:,:), allocatable :: out_r8
 
     ! If id is < 0 it means that this field is not registered, simply return
     IF ( id <= 0 ) THEN
@@ -4365,19 +4463,37 @@ CONTAINS
        RETURN
     END IF
 
-    CALL average_tiles(id, field, area, mask, out)
-    send_tile_averaged_data2d = send_data(id, out, time, mask=ANY(mask,DIM=3))
+    select type (field)
+    type is (real(r4_kind))
+       select type (area)
+       type is (real(r4_kind))
+          allocate(out_r4(size(field,1),size(field,2)))
+          CALL average_tiles(id, field, area, mask, out_r4)
+          send_tile_averaged_data2d = send_data(id, out_r4, time, mask=ANY(mask,DIM=3))
+          deallocate(out_r4)
+       end select
+    type is (real(r8_kind))
+       select type (area)
+       type is (real(r8_kind))
+          allocate(out_r8(size(field,1),size(field,2)))
+          CALL average_tiles(id, field, area, mask, out_r8)
+          send_tile_averaged_data2d = send_data(id, out_r8, time, mask=ANY(mask,DIM=3))
+          deallocate(out_r8)
+       end select
+    end select
   END FUNCTION send_tile_averaged_data2d
 
   !> @return true if send is successful
   LOGICAL FUNCTION send_tile_averaged_data3d( id, field, area, time, mask )
     INTEGER, INTENT(in) :: id !< id of the diagnostic field
-    REAL, DIMENSION(:,:,:,:), INTENT(in) :: field !< (lon, lat, tile, lev) field to average and send
-    REAL, DIMENSION(:,:,:), INTENT(in) :: area (:,:,:) !< (lon, lat, tile) tile areas ( == averaging weights), arbitrary units
+    CLASS(*), DIMENSION(:,:,:,:), INTENT(in) :: field !< (lon, lat, tile, lev) field to average and send
+    CLASS(*), DIMENSION(:,:,:), INTENT(in) :: area (:,:,:) !< (lon, lat, tile) tile areas ( == averaging weights), arbitrary units
     TYPE(time_type), INTENT(in)  :: time !< current time
     LOGICAL, DIMENSION(:,:,:), INTENT(in), OPTIONAL :: mask !< (lon, lat, tile) land mask
 
-    REAL, DIMENSION(SIZE(field,1),SIZE(field,2),SIZE(field,4)) :: out
+    real(r4_kind), dimension(:,:,:), allocatable :: out_r4
+    real(r8_kind), dimension(:,:,:), allocatable :: out_r8
+    !REAL, DIMENSION(SIZE(field,1),SIZE(field,2),SIZE(field,4)) :: out
     LOGICAL, DIMENSION(SIZE(field,1),SIZE(field,2),SIZE(field,4)) :: mask3
     INTEGER :: it
 
@@ -4387,29 +4503,55 @@ CONTAINS
        RETURN
     END IF
 
-    DO it=1, SIZE(field,4)
-       CALL average_tiles(id, field(:,:,:,it), area, mask, out(:,:,it) )
-    END DO
+    select type (field)
+    type is (real(r4_kind))
+       select type (area)
+       type is (real(r4_kind))
+          allocate(out_r4(size(field,1),size(field,2),size(field,4))
+          DO it=1, SIZE(field,4)
+             CALL average_tiles(id, field(:,:,:,it), area, mask, out_r4(:,:,it) )
+          END DO
 
-    mask3(:,:,1) = ANY(mask,DIM=3)
-    DO it = 2, SIZE(field,4)
-       mask3(:,:,it) = mask3(:,:,1)
-    END DO
+          mask3(:,:,1) = ANY(mask,DIM=3)
+          DO it = 2, SIZE(field,4)
+             mask3(:,:,it) = mask3(:,:,1)
+          END DO
+          send_tile_averaged_data3d = send_data( id, out_r4, time, mask=mask3 )
+          deallocate(out_r4)
+       end select
+    type is (real(r8_kind))
+       select type (area)
+       type is (real(r8_kind))
+          allocate(out_r8(size(field,1),size(field,2),size(field,4))
+          DO it=1, SIZE(field,4)
+             CALL average_tiles(id, field(:,:,:,it), area, mask, out_r8(:,:,it) )
+          END DO
 
-    send_tile_averaged_data3d = send_data( id, out, time, mask=mask3 )
+          mask3(:,:,1) = ANY(mask,DIM=3)
+          DO it = 2, SIZE(field,4)
+             mask3(:,:,it) = mask3(:,:,1)
+          END DO
+          send_tile_averaged_data3d = send_data( id, out_r8, time, mask=mask3 )
+          deallocate(out_r8)
+       end select
+       end select
+    end select
+
   END FUNCTION send_tile_averaged_data3d
 
   !> @brief Calculates tile average of a field
   SUBROUTINE average_tiles(diag_field_id, x, area, mask, out)
     INTEGER, INTENT(in) :: diag_field_id
-    REAL, DIMENSION(:,:,:), INTENT(in) :: x !< (lon, lat, tile) field to average
-    REAL, DIMENSION(:,:,:), INTENT(in) :: area !< (lon, lat, tile) fractional area
+    CLASS(*), DIMENSION(:,:,:), INTENT(in) :: x !< (lon, lat, tile) field to average
+    CLASS(*), DIMENSION(:,:,:), INTENT(in) :: area !< (lon, lat, tile) fractional area
     LOGICAL, DIMENSION(:,:,:), INTENT(in) :: mask !< (lon, lat, tile) land mask
-    REAL, DIMENSION(:,:), INTENT(out) :: out !< (lon, lat) result of averaging
+    CLASS(*), DIMENSION(:,:), INTENT(out) :: out !< (lon, lat) result of averaging
 
     INTEGER  :: it !< iterator over tile number
-    REAL, DIMENSION(SIZE(x,1),SIZE(x,2)) :: s !< area accumulator
-    REAL :: local_missing_value
+    real(r4_kind), dimension(:,:), allocatable :: s_r4 !< area accumulator
+    real(r8_kind), dimension(:,:), allocatable :: s_r8 !< area accumulator
+    real(r4_kind), allocatable :: local_missing_value_r4
+    real(r8_kind), allocatable :: local_missing_value_r8
 
     ! # FATAL if diag_field_id is less than 0, indicates field was not in diag_table.
     ! The calling functions should not have passed in an invalid diag_field_id
@@ -4421,29 +4563,78 @@ CONTAINS
             & "diag_field_id less than 0.  Contact developers.", FATAL)
     END IF
 
-    ! Initialize local_missing_value
-    IF ( input_fields(diag_field_id)%missing_value_present ) THEN
-       local_missing_value = input_fields(diag_field_id)%missing_value
-    ELSE
-       local_missing_value = 0.0
-    END IF
+    select type (x)
+    type is (real(r4_kind))
+       select type (area)
+       type is (real(r4_kind))
+          select type (out)
+          type is (real(r4_kind))
+             allocate(s_r4(size(x,1),size(x,2)))
+             allocate(local_missing_value_r4)
 
-    ! Initialize s and out to zero.
-    s(:,:) = 0.0
-    out(:,:) = 0.0
+             ! Initialize local_missing_value
+             IF ( input_fields(diag_field_id)%missing_value_present ) THEN
+                local_missing_value_r4 = input_fields(diag_field_id)%missing_value
+             ELSE
+                local_missing_value_r4 = 0.0
+             END IF
 
-    DO it = 1, SIZE(area,3)
-       WHERE ( mask(:,:,it) )
-          out(:,:) = out(:,:) + x(:,:,it)*area(:,:,it)
-          s(:,:) = s(:,:) + area(:,:,it)
-       END WHERE
-    END DO
+             ! Initialize s and out to zero.
+             s_r4(:,:) = 0.0
+             out(:,:) = 0.0
 
-    WHERE ( s(:,:) > 0 )
-       out(:,:) = out(:,:)/s(:,:)
-    ELSEWHERE
-       out(:,:) = local_missing_value
-    END WHERE
+             DO it = 1, SIZE(area,3)
+                WHERE ( mask(:,:,it) )
+                   out(:,:) = out(:,:) + x(:,:,it)*area(:,:,it)
+                   s_r4(:,:) = s_r4(:,:) + area(:,:,it)
+                END WHERE
+             END DO
+
+             WHERE ( s_r4(:,:) > 0 )
+                out(:,:) = out(:,:)/s_r4(:,:)
+             ELSEWHERE
+                out(:,:) = local_missing_value_r4
+             END WHERE
+             deallocate(s_r4)
+             deallocate(local_missing_value_r4)
+          end select
+       end select
+    type is (real(r8_kind))
+       select type (area)
+       type is (real(r8_kind))
+          select type (out)
+          type is (real(r8_kind))
+             allocate(s_r8(size(x,1),size(x,2)))
+             allocate(local_missing_value_r8)
+
+             ! Initialize local_missing_value
+             IF ( input_fields(diag_field_id)%missing_value_present ) THEN
+                local_missing_value_r8 = input_fields(diag_field_id)%missing_value
+             ELSE
+                local_missing_value_r8 = 0.0
+             END IF
+
+             ! Initialize s and out to zero.
+             s_r8(:,:) = 0.0
+             out(:,:) = 0.0
+
+             DO it = 1, SIZE(area,3)
+                WHERE ( mask(:,:,it) )
+                   out(:,:) = out(:,:) + x(:,:,it)*area(:,:,it)
+                   s_r8(:,:) = s_r8(:,:) + area(:,:,it)
+                END WHERE
+             END DO
+
+             WHERE ( s_r8(:,:) > 0 )
+                out(:,:) = out(:,:)/s_r8(:,:)
+             ELSEWHERE
+                out(:,:) = local_missing_value_r8
+             END WHERE
+             deallocate(s_r8)
+             deallocate(local_missing_value_r8)
+          end select
+       end select
+    end select
   END SUBROUTINE average_tiles
 
   !> @return Integer writing_field

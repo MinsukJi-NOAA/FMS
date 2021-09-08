@@ -634,8 +634,8 @@ CONTAINS
     INTEGER, DIMENSION(:), INTENT(in) :: axes !< Axis IDs
     CHARACTER(len=*), OPTIONAL, INTENT(in) :: long_name !< Long name for field.
     CHARACTER(len=*), OPTIONAL, INTENT(in) :: units !< Unit of field.
-    REAL, OPTIONAL, INTENT(in) :: missing_value !< Missing value value.
-    REAL, DIMENSION(2), OPTIONAL, INTENT(IN) :: range !< Valid range of values for field.
+    CLASS(*), OPTIONAL, INTENT(in) :: missing_value !< Missing value value.
+    CLASS(*), DIMENSION(2), OPTIONAL, INTENT(IN) :: range !< Valid range of values for field.
     LOGICAL, OPTIONAL, INTENT(in) :: dynamic !< <TT>.TRUE.</TT> if field is not static.
 
     ! ---- local vars
