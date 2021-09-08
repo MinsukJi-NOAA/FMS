@@ -4993,11 +4993,10 @@ CONTAINS
 
   !> @brief Initialize Diagnostics Manager.
   !! @details Open and read diag_table. Select fields and files for diagnostic output.
-  SUBROUTINE diag_manager_init(diag_model_subset, time_init, err_msg, precision)
+  SUBROUTINE diag_manager_init(diag_model_subset, time_init, err_msg)
     INTEGER, OPTIONAL, INTENT(IN) :: diag_model_subset
     INTEGER, DIMENSION(6), OPTIONAL, INTENT(IN) :: time_init !< Model time diag_manager initialized
     CHARACTER(len=*), INTENT(out), OPTIONAL :: err_msg
-    class(*), intent(in), optional :: precision
 
     CHARACTER(len=*), PARAMETER :: SEP = '|'
 
@@ -5276,7 +5275,7 @@ CONTAINS
     INTEGER, INTENT(in) :: type !< NetCDF type (NF90_FLOAT, NF90_INT, NF90_CHAR)
     CHARACTER(len=*), INTENT(in), OPTIONAL :: cval !< Character string attribute value
     INTEGER, DIMENSION(:), INTENT(in), OPTIONAL :: ival !< Integer attribute value(s)
-    REAL, DIMENSION(:), INTENT(in), OPTIONAL :: rval !< Real attribute value(s)
+    CLASS(*), DIMENSION(:), INTENT(in), OPTIONAL :: rval !< Real attribute value(s)
 
     INTEGER :: istat, length, i, j, this_attribute, out_field
     CHARACTER(len=1024) :: err_msg
@@ -5404,7 +5403,12 @@ CONTAINS
              END IF
              ! Set remaining fields
              output_fields(out_field)%attributes(this_attribute)%len = length
-             output_fields(out_field)%attributes(this_attribute)%fatt = rval
+             select type (rval)
+             type is (real(r4_kind))
+                output_fields(out_field)%attributes(this_attribute)%fatt = rval
+             type is (real(r8_kind))
+                output_fields(out_field)%attributes(this_attribute)%fatt = rval
+             end select
           CASE (NF90_CHAR)
              IF ( .NOT.PRESENT(cval) ) THEN
                 ! <ERROR STATUS="FATAL">
@@ -5434,9 +5438,19 @@ CONTAINS
   SUBROUTINE diag_field_add_attribute_scalar_r(diag_field_id, att_name, att_value)
     INTEGER, INTENT(in) :: diag_field_id !< ID number for field to add attribute to
     CHARACTER(len=*), INTENT(in) :: att_name !< new attribute name
-    REAL, INTENT(in) :: att_value !< new attribute value
+    CLASS(*), INTENT(in) :: att_value !< new attribute value
 
-    CALL diag_field_add_attribute_r1d(diag_field_id, att_name, (/ att_value /))
+    class(*), dimension(:), allocatable :: att_value_array
+
+    select type (att_value)
+    type is (real(r4_kind))
+       allocate(att_value_array(1), source=att_value)
+    type is (real(r8_kind))
+       allocate(att_value_array(1), source=att_value)
+    end select
+
+    CALL diag_field_add_attribute_r1d(diag_field_id, att_name, att_value_array)
+    deallocate(att_value_array)
   END SUBROUTINE diag_field_add_attribute_scalar_r
 
   !> @brief Add a scalar integer attribute to the diag field corresponding to a given id
@@ -5461,7 +5475,7 @@ CONTAINS
   SUBROUTINE diag_field_add_attribute_r1d(diag_field_id, att_name, att_value)
     INTEGER, INTENT(in) :: diag_field_id !< ID number for field to add attribute to
     CHARACTER(len=*), INTENT(in) :: att_name !< new attribute name
-    REAL, DIMENSION(:), INTENT(in) :: att_value !< new attribute value
+    CLASS(*), DIMENSION(:), INTENT(in) :: att_value !< new attribute value
 
     INTEGER :: num_attributes, len
     CHARACTER(len=512) :: err_msg
