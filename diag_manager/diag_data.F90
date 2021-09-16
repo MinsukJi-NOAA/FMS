@@ -88,51 +88,85 @@ use platform_mod
 
   !> @brief Contains the coordinates of the local domain to output.
   !> @ingroup diag_data_mod
-  TYPE diag_grid
-     REAL, DIMENSION(3) :: start !< start coordinates (lat,lon,depth) of local domain to output
-     REAL, DIMENSION(3) :: END !< end coordinates (lat,lon,depth) of local domain to output
+  TYPE, abstract :: diag_grid
      INTEGER, DIMENSION(3) :: l_start_indx !< start indices at each LOCAL PE
      INTEGER, DIMENSION(3) :: l_end_indx !< end indices at each LOCAL PE
      INTEGER, DIMENSION(3) :: subaxes !< id returned from diag_subaxes_init of 3 subaxes
   END TYPE diag_grid
 
+  type, extends(diag_grid) :: diag_grid_r4
+     REAL(r4_kind), DIMENSION(3) :: start !< start coordinates (lat,lon,depth) of local domain to output
+     REAL(r4_kind), DIMENSION(3) :: END !< end coordinates (lat,lon,depth) of local domain to output
+  end type diag_grid_r4
+
+  type, extends(diag_grid) :: diag_grid_r8
+     REAL(r8_kind), DIMENSION(3) :: start !< start coordinates (lat,lon,depth) of local domain to output
+     REAL(r8_kind), DIMENSION(3) :: END !< end coordinates (lat,lon,depth) of local domain to output
+  end type diag_grid_r8
+
   !> @brief Diagnostic field type
   !> @ingroup diag_data_mod
-  TYPE diag_fieldtype
+  TYPE, abstract :: diag_fieldtype
      TYPE(fieldtype) :: Field
      TYPE(domain2d) :: Domain
      TYPE(domainUG) :: DomainU
-     REAL :: miss, miss_pack
      LOGICAL :: miss_present, miss_pack_present
      INTEGER :: tile_count
   END TYPE diag_fieldtype
 
+  type, extends(diag_fieldtype) :: diag_fieldtype_r4
+     REAL(r4_kind) :: miss, miss_pack
+  end type diag_fieldtype_r4
+
+  type, extends(diag_fieldtype) :: diag_fieldtype_r8
+     REAL(r8_kind) :: miss, miss_pack
+  end type diag_fieldtype_r8
+
   !> @brief Attribute type for diagnostic fields
   !> @ingroup diag_data_mod
-  TYPE :: diag_atttype
+  TYPE, abstract :: diag_atttype
      INTEGER             :: type !< Data type of attribute values (NF_INT, NF_FLOAT, NF_CHAR)
      INTEGER             :: len !< Number of values in attribute, or if a character string then
                                 !! length of the string.
      CHARACTER(len=128)  :: name !< Name of the attribute
      CHARACTER(len=1280) :: catt !< Character string to hold character value of attribute
-     REAL, allocatable, DIMENSION(:)    :: fatt !< REAL array to hold value of REAL attributes
      INTEGER, allocatable, DIMENSION(:) :: iatt !< INTEGER array to hold value of INTEGER attributes
   END TYPE diag_atttype
 
+  type, extends(diag_atttype) :: diag_atttype_r4
+     REAL(r4_kind), allocatable, DIMENSION(:)    :: fatt !< REAL array to hold value of REAL attributes
+  end type diag_atttype_r4
+
+  type, extends(diag_atttype) :: diag_atttype_r8
+     REAL(r8_kind), allocatable, DIMENSION(:)    :: fatt !< REAL array to hold value of REAL attributes
+  end type diag_atttype_r8
+
   !> @brief Define the region for field output
   !> @ingroup diag_data_mod
-  TYPE coord_type
-     REAL :: xbegin
-     REAL :: xend
-     REAL :: ybegin
-     REAL :: yend
-     REAL :: zbegin
-     REAL :: zend
+  TYPE, abstract :: coord_type
   END TYPE coord_type
+
+  type, extends(coord_type) :: coord_type_r4
+     REAL(r4_kind) :: xbegin
+     REAL(r4_kind) :: xend
+     REAL(r4_kind) :: ybegin
+     REAL(r4_kind) :: yend
+     REAL(r4_kind) :: zbegin
+     REAL(r4_kind) :: zend
+  end type coord_type_r4
+
+  type, extends(coord_type) :: coord_type_r8
+     REAL(r8_kind) :: xbegin
+     REAL(r8_kind) :: xend
+     REAL(r8_kind) :: ybegin
+     REAL(r8_kind) :: yend
+     REAL(r8_kind) :: zbegin
+     REAL(r8_kind) :: zend
+  end type coord_type_r8
 
   !> @brief Type to define the diagnostic files that will be written as defined by the diagnostic table.
   !> @ingroup diag_data_mod
-  TYPE file_type
+  TYPE, abstract :: file_type
      CHARACTER(len=128) :: name !< Name of the output file.
      CHARACTER(len=128) :: long_name
      INTEGER, DIMENSION(max_fields_per_file) :: fields
@@ -154,8 +188,6 @@ use platform_mod
      TYPE(time_type) :: next_open !< Time to open a new file.
      TYPE(time_type) :: start_time !< Time file opened.
      TYPE(time_type) :: close_time !< Time file closed.  File does not allow data after close time
-     TYPE(diag_fieldtype):: f_avg_start, f_avg_end, f_avg_nitems, f_bounds
-     TYPE(diag_atttype), allocatable, dimension(:) :: attributes !< Array to hold user definable attributes
      INTEGER :: num_attributes !< Number of defined attibutes
 !----------
 !ug support
@@ -165,22 +197,33 @@ use platform_mod
 !Check if time axis was already registered
      logical, allocatable :: is_time_axis_registered
 !Support for fms2_io time
-     real :: rtime_current
      integer :: time_index
      CHARACTER(len=10) :: filename_time_bounds
   END TYPE file_type
 
+  type, extends(file_type) :: file_type_r4
+     TYPE(diag_fieldtype_r4):: f_avg_start, f_avg_end, f_avg_nitems, f_bounds
+     TYPE(diag_atttype_r4), allocatable, dimension(:) :: attributes !< Array to hold user definable attributes
+     !Support for fms2_io time
+     real(r4_kind) :: rtime_current
+  end type file_type_r4
+
+  type, extends(file_type) :: file_type_r8
+     TYPE(diag_fieldtype_r8):: f_avg_start, f_avg_end, f_avg_nitems, f_bounds
+     TYPE(diag_atttype_r8), allocatable, dimension(:) :: attributes !< Array to hold user definable attributes
+     !Support for fms2_io time
+     real(r8_kind) :: rtime_current
+  end type file_type_r8
+
   !> @brief Type to hold the input field description
   !> @ingroup diag_data_mod
-  TYPE input_field_type
+  TYPE, abstract :: input_field_type
      CHARACTER(len=128) :: module_name, field_name, long_name, units
      CHARACTER(len=256) :: standard_name
      CHARACTER(len=64) :: interp_method
      INTEGER, DIMENSION(3) :: axes
      INTEGER :: num_axes
      LOGICAL :: missing_value_present, range_present
-     REAL :: missing_value
-     REAL, DIMENSION(2) :: range
      INTEGER, allocatable, dimension(:) :: output_fields
      INTEGER :: num_output_fields
      INTEGER, DIMENSION(3) :: size
@@ -197,9 +240,19 @@ use platform_mod
                                            !! send_data calls.
   END TYPE input_field_type
 
+  type, extends(input_field_type) :: input_field_type_r4
+     REAL(r4_kind) :: missing_value
+     REAL(r4_kind), DIMENSION(2) :: range
+  end type input_field_type_r4
+
+  type, extends(input_field_type) :: input_field_type_r8
+     REAL(r8_kind) :: missing_value
+     REAL(r8_kind), DIMENSION(2) :: range
+  end type input_field_type_r8
+
   !> @brief Type to hold the output field description.
   !> @ingroup diag_data_mod
-  TYPE output_field_type
+  TYPE, abstract :: output_field_type
      INTEGER :: input_field !< index of the corresponding input field in the table
      INTEGER :: output_file !< index of the output file in the table
      CHARACTER(len=128) :: output_name
@@ -213,39 +266,26 @@ use platform_mod
      INTEGER  :: pack
      INTEGER :: pow_value !< Power value to use for mean_pow(n) calculations
      CHARACTER(len=50) :: time_method !< time method field from the input file
-     ! coordinates of the buffer and counter are (x, y, z, time-of-day)
-     REAL, allocatable, DIMENSION(:,:,:,:) :: buffer !< coordinates of the buffer and counter are (x, y, z, time-of-day)
-     REAL, allocatable, DIMENSION(:,:,:,:) :: counter !< coordinates of the buffer and counter are (x, y, z, time-of-day)
      ! the following two counters are used in time-averaging for some
      ! combination of the field options. Their size is the length of the
      ! diurnal axis; the counters must be tracked separately for each of
      ! the diurnal interval, because the number of time slices accumulated
      ! in each can be different, depending on time step and the number of
      ! diurnal samples.
-     REAL, allocatable, DIMENSION(:)  :: count_0d !< the following two counters are used in time-averaging for some
-     !! combination of the field options. Their size is the length of the
-     !! diurnal axis; the counters must be tracked separately for each of
-     !! the diurnal interval, because the number of time slices accumulated
-     !! in each can be different, depending on time step and the number of
-     !! diurnal samples.
      INTEGER, allocatable, dimension(:) :: num_elements !< the following two counters are used in time-averaging for some
      !! combination of the field options. Their size is the length of the
      !! diurnal axis; the counters must be tracked separately for each of
      !! the diurnal interval, because the number of time slices accumulated
      !! in each can be different, depending on time step and the number of
      !! diurnal samples.
-
      TYPE(time_type) :: last_output, next_output, next_next_output
-     TYPE(diag_fieldtype) :: f_type
      INTEGER, DIMENSION(4) :: axes
      INTEGER :: num_axes, total_elements, region_elements
      INTEGER :: n_diurnal_samples !< number of diurnal sample intervals, 1 or more
-     TYPE(diag_grid) :: output_grid
      LOGICAL :: local_output, need_compute, phys_window, written_once
      LOGICAL :: reduced_k_range
      INTEGER :: imin, imax, jmin, jmax, kmin, kmax
      TYPE(time_type) :: Time_of_prev_field_data
-     TYPE(diag_atttype), allocatable, dimension(:) :: attributes
      INTEGER :: num_attributes
 !----------
 !ug support
@@ -253,13 +293,42 @@ use platform_mod
 !----------
   END TYPE output_field_type
 
+  type, extends(output_field_type) :: output_field_type_r4
+     ! coordinates of the buffer and counter are (x, y, z, time-of-day)
+     REAL(r4_kind), allocatable, DIMENSION(:,:,:,:) :: buffer !< coordinates of the buffer and counter are (x, y, z, time-of-day)
+     REAL(r4_kind), allocatable, DIMENSION(:,:,:,:) :: counter !< coordinates of the buffer and counter are (x, y, z, time-of-day)
+     REAL(r4_kind), allocatable, DIMENSION(:)  :: count_0d !< the following two counters are used in time-averaging for some
+     !! combination of the field options. Their size is the length of the
+     !! diurnal axis; the counters must be tracked separately for each of
+     !! the diurnal interval, because the number of time slices accumulated
+     !! in each can be different, depending on time step and the number of
+     !! diurnal samples.
+     TYPE(diag_fieldtype_r4) :: f_type
+     TYPE(diag_grid_r4) :: output_grid
+     TYPE(diag_atttype_r4), allocatable, dimension(:) :: attributes
+  end type output_field_type_r4
+
+  type, extends(output_field_type) :: output_field_type_r8
+     ! coordinates of the buffer and counter are (x, y, z, time-of-day)
+     REAL(r8_kind), allocatable, DIMENSION(:,:,:,:) :: buffer !< coordinates of the buffer and counter are (x, y, z, time-of-day)
+     REAL(r8_kind), allocatable, DIMENSION(:,:,:,:) :: counter !< coordinates of the buffer and counter are (x, y, z, time-of-day)
+     REAL(r8_kind), allocatable, DIMENSION(:)  :: count_0d !< the following two counters are used in time-averaging for some
+     !! combination of the field options. Their size is the length of the
+     !! diurnal axis; the counters must be tracked separately for each of
+     !! the diurnal interval, because the number of time slices accumulated
+     !! in each can be different, depending on time step and the number of
+     !! diurnal samples.
+     TYPE(diag_fieldtype_r8) :: f_type
+     TYPE(diag_grid_r8) :: output_grid
+     TYPE(diag_atttype_r8), allocatable, dimension(:) :: attributes
+  end type output_field_type_r8
+
   !> @brief Type to hold the diagnostic axis description.
   !> @ingroup diag_data_mod
-  TYPE diag_axis_type
+  TYPE, abstract :: diag_axis_type
      CHARACTER(len=128) :: name
      CHARACTER(len=256) :: units, long_name
      CHARACTER(len=1) :: cart_name
-     REAL, DIMENSION(:), POINTER :: data
      INTEGER, DIMENSION(MAX_SUBAXES) :: start
      INTEGER, DIMENSION(MAX_SUBAXES) :: end
      CHARACTER(len=128), DIMENSION(MAX_SUBAXES) :: subaxis_name
@@ -270,10 +339,19 @@ use platform_mod
      type(domainUG) :: DomainUG
      CHARACTER(len=128) :: aux, req
      INTEGER :: tile_count
-     TYPE(diag_atttype), allocatable, dimension(:) :: attributes !< Array to hold user definable attributes
      INTEGER :: num_attributes !< Number of defined attibutes
      INTEGER :: domain_position !< The position in the doman (NORTH or EAST or CENTER)
   END TYPE diag_axis_type
+
+  type, extends(diag_axis_type) :: diag_axis_type_r4
+     REAL(r4_kind), DIMENSION(:), POINTER :: data
+     TYPE(diag_atttype_r4), allocatable, dimension(:) :: attributes !< Array to hold user definable attributes
+  end type diag_axis_type_r4
+
+  type, extends(diag_axis_type) :: diag_axis_type_r8
+     REAL(r8_kind), DIMENSION(:), POINTER :: data
+     TYPE(diag_atttype_r8), allocatable, dimension(:) :: attributes !< Array to hold user definable attributes
+  end type diag_axis_type_r8
 
   !> @ingroup diag_data_mod
   TYPE diag_global_att_type
@@ -353,9 +431,9 @@ use platform_mod
   CHARACTER(len = 256):: global_descriptor
 
   ! <!-- ALLOCATABLE variables -->
-  TYPE(file_type), SAVE, ALLOCATABLE :: files(:)
-  TYPE(input_field_type), ALLOCATABLE :: input_fields(:)
-  TYPE(output_field_type), ALLOCATABLE :: output_fields(:)
+  CLASS(file_type), SAVE, ALLOCATABLE :: files(:)
+  CLASS(input_field_type), ALLOCATABLE :: input_fields(:)
+  CLASS(output_field_type), ALLOCATABLE :: output_fields(:)
   ! used if use_mpp_io = .false.
   type(FmsNetcdfUnstructuredDomainFile_t),allocatable, target :: fileobjU(:)
   type(FmsNetcdfDomainFile_t),allocatable, target :: fileobj(:)
