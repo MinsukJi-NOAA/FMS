@@ -5440,17 +5440,13 @@ CONTAINS
     CHARACTER(len=*), INTENT(in) :: att_name !< new attribute name
     CLASS(*), INTENT(in) :: att_value !< new attribute value
 
-    class(*), dimension(:), allocatable :: att_value_array
-
     select type (att_value)
     type is (real(r4_kind))
-       allocate(att_value_array(1), source=att_value)
+       CALL diag_field_add_attribute_r1d(diag_field_id, att_name, (/ att_value /))
     type is (real(r8_kind))
-       allocate(att_value_array(1), source=att_value)
+       CALL diag_field_add_attribute_r1d(diag_field_id, att_name, (/ att_value /))
     end select
 
-    CALL diag_field_add_attribute_r1d(diag_field_id, att_name, att_value_array)
-    deallocate(att_value_array)
   END SUBROUTINE diag_field_add_attribute_scalar_r
 
   !> @brief Add a scalar integer attribute to the diag field corresponding to a given id
