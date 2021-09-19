@@ -148,12 +148,12 @@ CONTAINS
     ! Allocate the axes
     IF (.NOT. ALLOCATED(Axis_sets)) ALLOCATE(Axis_sets(max_num_axis_sets))
     IF (.NOT. ALLOCATED(Axes)) THEN
-       select type (DATA)
-       type is (real(r4_kind))
+       SELECT TYPE (DATA)
+       TYPE IS (real(r4_kind))
           ALLOCATE(diag_axis_type_r4::Axes(max_axes))
-       type is (real(r8_kind))
+       TYPE IS (real(r8_kind))
           ALLOCATE(diag_axis_type_r8::Axes(max_axes))
-       end select
+       END SELECT
     END IF
     IF (.NOT. ALLOCATED(num_subaxes)) THEN
        ALLOCATE(num_subaxes(max_axes))
@@ -185,365 +185,365 @@ CONTAINS
 
     SELECT TYPE (DATA)
     TYPE IS (real(r4_kind))
+       !---- see if axis already exists --
+       ! if this is time axis, return the ID of a previously defined
+       ! if this is spatial axis, FATAL error
+       DO i = 1, num_def_axes
+          IF ( TRIM(name) == Axes(i)%name ) THEN
+             IF ( TRIM(name) == 'Stations' .OR. TRIM(name) == 'Levels') THEN
+                diag_axis_init = i
+                RETURN
+             ELSE IF ( set == Axes(i)%set ) THEN
+                IF ( TRIM(lowercase(name)) == 'time' .OR.&
+                     & TRIM(lowercase(cart_name)) == 't' .OR.&
+                     & TRIM(lowercase(name)) == 'nv' .OR.&
+                     & TRIM(lowercase(cart_name)) == 'n' ) THEN
+                   diag_axis_init = i
+                   RETURN
+                ELSE IF ( (lowercase(cart_name) /= 'x' .AND. lowercase(cart_name) /= 'y')&
+                     & .OR. tile /= Axes(i)%tile_count) THEN
+                   ! <ERROR STATUS="FATAL">axis_name <NAME> and axis_set already exist.</ERROR>
+                   CALL error_mesg('diag_axis_mod::diag_axis_init',&
+                        & 'axis_name '//TRIM(name)//' and axis_set already exist.', FATAL)
+                END IF
+             END IF
+          END IF
+       END DO
+
+       !---- register axis ----
+       num_def_axes = num_def_axes + 1
+       ! <ERROR STATUS="FATAL">max_axes exceeded, increase it via diag_manager_nml</ERROR>
+       IF (num_def_axes > max_axes) CALL error_mesg ('diag_axis_mod::diag_axis_init',&
+            & 'max_axes exceeded, increase via diag_manager_nml', FATAL)
+       diag_axis_init = num_def_axes
+
+       !---- check and then save cart_name name ----
+       IF ( TRIM(uppercase(cart_name)) == 'X' .OR.&
+            & TRIM(uppercase(cart_name)) == 'Y' .OR.&
+            & TRIM(uppercase(cart_name)) == 'Z' .OR.&
+            & TRIM(uppercase(cart_name)) == 'T' .OR.&
+            & TRIM(uppercase(cart_name)) == 'U' .OR.&
+            & TRIM(uppercase(cart_name)) == 'N' ) THEN
+          Axes(diag_axis_init)%cart_name = TRIM(uppercase(cart_name))
+       ELSE
+          ! <ERROR STATUS="FATAL">Invalid cart_name name.</ERROR>
+          CALL error_mesg('diag_axis_mod::diag_axis_init', 'Invalid cart_name name. '//TRIM(uppercase(cart_name)), FATAL)
+       END IF
+
+       !---- allocate storage for coordinate values of axis ----
+       IF ( Axes(diag_axis_init)%cart_name == 'T' ) THEN
+          axlen = 0
+       ELSE
+          axlen = SIZE(DATA(:))
+       END IF
+
+       ! Initialize Axes(diag_axis_init)
+       Axes(diag_axis_init)%name   = TRIM(name)
        SELECT TYPE (Axes)
        TYPE IS (diag_axis_type_r4)
-          !---- see if axis already exists --
-          ! if this is time axis, return the ID of a previously defined
-          ! if this is spatial axis, FATAL error
-          DO i = 1, num_def_axes
-             IF ( TRIM(name) == Axes(i)%name ) THEN
-                IF ( TRIM(name) == 'Stations' .OR. TRIM(name) == 'Levels') THEN
+          ALLOCATE ( Axes(diag_axis_init)%data(1:axlen) )
+          Axes(diag_axis_init)%data   = DATA(1:axlen)
+       END SELECT
+       Axes(diag_axis_init)%units  = units
+       Axes(diag_axis_init)%length = axlen
+       Axes(diag_axis_init)%set    = set
+       ! start and end are used in subaxes information only
+       Axes(diag_axis_init)%start = -1
+       Axes(diag_axis_init)%end = -1
+       Axes(diag_axis_init)%subaxis_name = ""
+       Axes(diag_axis_init)%shift = 0
+       Axes(diag_axis_init)%num_attributes = 0
+
+       IF ( PRESENT(long_name) ) THEN
+          Axes(diag_axis_init)%long_name = long_name
+       ELSE
+          Axes(diag_axis_init)%long_name = name
+       END IF
+
+       IF ( PRESENT(aux) ) THEN
+          Axes(diag_axis_init)%aux = TRIM(aux)
+       ELSE
+          Axes(diag_axis_init)%aux = 'none'
+       END IF
+
+       IF ( PRESENT(req) ) THEN
+          Axes(diag_axis_init)%req = TRIM(req)
+       ELSE
+          Axes(diag_axis_init)%req = 'none'
+       END IF
+       IF ( PRESENT(domain_position) ) THEN
+          if (domain_position == NORTH .or. domain_position == EAST .or. domain_position == CENTER) then
+             Axes(diag_axis_init)%domain_position = domain_position
+          else
+             CALL error_mesg('diag_axis_mod::diag_axis_init', "Position must be NORTH, EAST, or CENTER" ,&
+                            FATAL)
+          endif
+       ELSE
+          Axes(diag_axis_init)%domain_position = CENTER
+       END IF
+
+       !---- axis direction (-1, 0, or +1) ----
+       IF ( PRESENT(direction) )THEN
+          IF ( ABS(direction) /= 1 .AND. direction /= 0 )&
+               ! <ERROR STATUS="FATAL">direction must be 0, +1, or -1</ERROR>
+               & CALL error_mesg('diag_axis_mod::diag_axis_init', 'direction must be 0, +1 or -1', FATAL)
+          Axes(diag_axis_init)%direction = direction
+       ELSE
+          Axes(diag_axis_init)%direction = 0
+       END IF
+
+       !---- Handle the DomainU check
+       IF (present(DomainU) .AND. (PRESENT(Domain2) .OR. PRESENT(Domain)) ) THEN
+          ! <ERROR STATUS="FATAL">Presence of DomainU and another Domain at the same time is prohibited</ERROR>
+          CALL error_mesg('diag_axis_mod::diag_axis_init',&
+               & 'Presence of DomainU and another Domain at the same time is prohibited', FATAL)
+       !---- domain2d type ----
+       ELSE IF ( PRESENT(Domain2) .AND. PRESENT(Domain)) THEN
+          ! <ERROR STATUS="FATAL">Presence of both Domain and Domain2 at the same time is prohibited</ERROR>
+          CALL error_mesg('diag_axis_mod::diag_axis_init',&
+               & 'Presence of both Domain and Domain2 at the same time is prohibited', FATAL)
+       ELSE IF ( PRESENT(Domain2) .OR. PRESENT(Domain)) THEN
+          IF ( Axes(diag_axis_init)%cart_name /= 'X' .AND. Axes(diag_axis_init)%cart_name /= 'Y') THEN
+             ! <ERROR STATUS="FATAL">Domain must not be present for an axis which is not in the X or Y direction.</ERROR>
+             CALL error_mesg('diag_axis_mod::diag_axis_init',&
+                  & 'A Structured Domain must not be present for an axis which is not in the X or Y direction', FATAL)
+          END IF
+       ELSE IF (present(DomainU) .AND. Axes(diag_axis_init)%cart_name /= 'U') THEN
+             CALL error_mesg('diag_axis_mod::diag_axis_init',&
+                  & 'In the unstructured domain, the axis cart_name must be U', FATAL)
+       END IF
+
+       Axes(diag_axis_init)%tile_count = tile
+
+       IF ( PRESENT(Domain2) ) THEN
+          Axes(diag_axis_init)%Domain2 = Domain2
+          CALL mpp_get_domain_components(Domain2, domain_x, domain_y, tile_count=tile_count)
+          IF ( Axes(diag_axis_init)%cart_name == 'X' ) Axes(diag_axis_init)%Domain = domain_x
+          IF ( Axes(diag_axis_init)%cart_name == 'Y' ) Axes(diag_axis_init)%Domain = domain_y
+          Axes(diag_axis_init)%DomainUG = null_DomainUG
+       ELSE IF ( PRESENT(Domain)) THEN
+          !---- domain1d type ----
+          Axes(diag_axis_init)%Domain2 = null_domain2d ! needed since not 2-D domain
+          Axes(diag_axis_init)%Domain = Domain
+          Axes(diag_axis_init)%DomainUG = null_DomainUG
+       ELSE IF (present(DomainU)) THEN
+          Axes(diag_axis_init)%Domain2 = null_domain2d
+          Axes(diag_axis_init)%Domain = null_domain1d
+          Axes(diag_axis_init)%DomainUG = DomainU
+       ELSE
+          Axes(diag_axis_init)%Domain2 = null_domain2d
+          Axes(diag_axis_init)%Domain = null_domain1d
+          Axes(diag_axis_init)%DomainUG = null_domainUG
+       END IF
+
+       !--- set up the shift value for x-y axis
+       IF ( Axes(diag_axis_init)%Domain .NE. null_domain1d ) THEN
+          CALL mpp_get_compute_domain(Axes(diag_axis_init)%Domain, isc, iec)
+          CALL mpp_get_global_domain(Axes(diag_axis_init)%Domain, isg, ieg)
+          IF ( Axes(diag_axis_init)%length == ieg - isg + 2 ) THEN
+             Axes(diag_axis_init)%shift = 1
+          END IF
+       END IF
+
+       !---- have axis edges been defined ? ----
+       Axes(diag_axis_init)%edges = 0
+       IF (PRESENT(edges) ) THEN
+          IF ( edges > 0 .AND. edges < num_def_axes ) THEN
+             ierr=0
+             IF ( Axes(edges)%cart_name /= Axes(diag_axis_init)%cart_name) ierr=1
+             IF ( Axes(edges)%length    /= Axes(diag_axis_init)%length+1 ) ierr=ierr+2
+             IF ( Axes(edges)%set       /= Axes(diag_axis_init)%set      ) ierr=ierr+4
+             IF ( ierr > 0 )   THEN
+                ! <ERROR STATUS="FATAL">Edges axis does not match axis (code <CODE>).</ERROR>
+                WRITE (emsg,'("Edges axis does not match axis (code ",I1,").")') ierr
+                CALL error_mesg('diag_axis_mod::diag_axis_init', emsg, FATAL)
+             END IF
+             Axes(diag_axis_init)%edges = edges
+          ELSE
+             ! <ERROR STATUS="FATAL">Edges axis is not defined.</ERROR>
+             CALL error_mesg('diag_axis_mod::diag_axis_init', 'Edges axis is not defined', FATAL)
+          END IF
+       END IF
+    TYPE IS (real(r8_kind))
+       !---- see if axis already exists --
+       ! if this is time axis, return the ID of a previously defined
+       ! if this is spatial axis, FATAL error
+       DO i = 1, num_def_axes
+          IF ( TRIM(name) == Axes(i)%name ) THEN
+             IF ( TRIM(name) == 'Stations' .OR. TRIM(name) == 'Levels') THEN
+                diag_axis_init = i
+                RETURN
+             ELSE IF ( set == Axes(i)%set ) THEN
+                IF ( TRIM(lowercase(name)) == 'time' .OR.&
+                     & TRIM(lowercase(cart_name)) == 't' .OR.&
+                     & TRIM(lowercase(name)) == 'nv' .OR.&
+                     & TRIM(lowercase(cart_name)) == 'n' ) THEN
                    diag_axis_init = i
                    RETURN
-                ELSE IF ( set == Axes(i)%set ) THEN
-                   IF ( TRIM(lowercase(name)) == 'time' .OR.&
-                        & TRIM(lowercase(cart_name)) == 't' .OR.&
-                        & TRIM(lowercase(name)) == 'nv' .OR.&
-                        & TRIM(lowercase(cart_name)) == 'n' ) THEN
-                      diag_axis_init = i
-                      RETURN
-                   ELSE IF ( (lowercase(cart_name) /= 'x' .AND. lowercase(cart_name) /= 'y')&
-                        & .OR. tile /= Axes(i)%tile_count) THEN
-                      ! <ERROR STATUS="FATAL">axis_name <NAME> and axis_set already exist.</ERROR>
-                      CALL error_mesg('diag_axis_mod::diag_axis_init',&
-                           & 'axis_name '//TRIM(name)//' and axis_set already exist.', FATAL)
-                   END IF
+                ELSE IF ( (lowercase(cart_name) /= 'x' .AND. lowercase(cart_name) /= 'y')&
+                     & .OR. tile /= Axes(i)%tile_count) THEN
+                   ! <ERROR STATUS="FATAL">axis_name <NAME> and axis_set already exist.</ERROR>
+                   CALL error_mesg('diag_axis_mod::diag_axis_init',&
+                        & 'axis_name '//TRIM(name)//' and axis_set already exist.', FATAL)
                 END IF
              END IF
-          END DO
-
-          !---- register axis ----
-          num_def_axes = num_def_axes + 1
-          ! <ERROR STATUS="FATAL">max_axes exceeded, increase it via diag_manager_nml</ERROR>
-          IF (num_def_axes > max_axes) CALL error_mesg ('diag_axis_mod::diag_axis_init',&
-               & 'max_axes exceeded, increase via diag_manager_nml', FATAL)
-          diag_axis_init = num_def_axes
-
-          !---- check and then save cart_name name ----
-          IF ( TRIM(uppercase(cart_name)) == 'X' .OR.&
-               & TRIM(uppercase(cart_name)) == 'Y' .OR.&
-               & TRIM(uppercase(cart_name)) == 'Z' .OR.&
-               & TRIM(uppercase(cart_name)) == 'T' .OR.&
-               & TRIM(uppercase(cart_name)) == 'U' .OR.&
-               & TRIM(uppercase(cart_name)) == 'N' ) THEN
-             Axes(diag_axis_init)%cart_name = TRIM(uppercase(cart_name))
-          ELSE
-             ! <ERROR STATUS="FATAL">Invalid cart_name name.</ERROR>
-             CALL error_mesg('diag_axis_mod::diag_axis_init', 'Invalid cart_name name. '//TRIM(uppercase(cart_name)), FATAL)
           END IF
+       END DO
 
-          !---- allocate storage for coordinate values of axis ----
-          IF ( Axes(diag_axis_init)%cart_name == 'T' ) THEN
-             axlen = 0
-          ELSE
-             axlen = SIZE(DATA(:))
-          END IF
-          ALLOCATE ( Axes(diag_axis_init)%data(1:axlen) )
+       !---- register axis ----
+       num_def_axes = num_def_axes + 1
+       ! <ERROR STATUS="FATAL">max_axes exceeded, increase it via diag_manager_nml</ERROR>
+       IF (num_def_axes > max_axes) CALL error_mesg ('diag_axis_mod::diag_axis_init',&
+            & 'max_axes exceeded, increase via diag_manager_nml', FATAL)
+       diag_axis_init = num_def_axes
 
-          ! Initialize Axes(diag_axis_init)
-          Axes(diag_axis_init)%name   = TRIM(name)
-          Axes(diag_axis_init)%data   = DATA(1:axlen)
-          Axes(diag_axis_init)%units  = units
-          Axes(diag_axis_init)%length = axlen
-          Axes(diag_axis_init)%set    = set
-          ! start and end are used in subaxes information only
-          Axes(diag_axis_init)%start = -1
-          Axes(diag_axis_init)%end = -1
-          Axes(diag_axis_init)%subaxis_name = ""
-          Axes(diag_axis_init)%shift = 0
-          Axes(diag_axis_init)%num_attributes = 0
+       !---- check and then save cart_name name ----
+       IF ( TRIM(uppercase(cart_name)) == 'X' .OR.&
+            & TRIM(uppercase(cart_name)) == 'Y' .OR.&
+            & TRIM(uppercase(cart_name)) == 'Z' .OR.&
+            & TRIM(uppercase(cart_name)) == 'T' .OR.&
+            & TRIM(uppercase(cart_name)) == 'U' .OR.&
+            & TRIM(uppercase(cart_name)) == 'N' ) THEN
+          Axes(diag_axis_init)%cart_name = TRIM(uppercase(cart_name))
+       ELSE
+          ! <ERROR STATUS="FATAL">Invalid cart_name name.</ERROR>
+          CALL error_mesg('diag_axis_mod::diag_axis_init', 'Invalid cart_name name. '//TRIM(uppercase(cart_name)), FATAL)
+       END IF
 
-          IF ( PRESENT(long_name) ) THEN
-             Axes(diag_axis_init)%long_name = long_name
-          ELSE
-             Axes(diag_axis_init)%long_name = name
-          END IF
+       !---- allocate storage for coordinate values of axis ----
+       IF ( Axes(diag_axis_init)%cart_name == 'T' ) THEN
+          axlen = 0
+       ELSE
+          axlen = SIZE(DATA(:))
+       END IF
 
-          IF ( PRESENT(aux) ) THEN
-             Axes(diag_axis_init)%aux = TRIM(aux)
-          ELSE
-             Axes(diag_axis_init)%aux = 'none'
-          END IF
-
-          IF ( PRESENT(req) ) THEN
-             Axes(diag_axis_init)%req = TRIM(req)
-          ELSE
-             Axes(diag_axis_init)%req = 'none'
-          END IF
-          IF ( PRESENT(domain_position) ) THEN
-             if (domain_position == NORTH .or. domain_position == EAST .or. domain_position == CENTER) then
-                Axes(diag_axis_init)%domain_position = domain_position
-             else
-                CALL error_mesg('diag_axis_mod::diag_axis_init', "Position must be NORTH, EAST, or CENTER" ,&
-                               FATAL)
-             endif
-          ELSE
-             Axes(diag_axis_init)%domain_position = CENTER
-          END IF
-
-          !---- axis direction (-1, 0, or +1) ----
-          IF ( PRESENT(direction) )THEN
-             IF ( ABS(direction) /= 1 .AND. direction /= 0 )&
-                  ! <ERROR STATUS="FATAL">direction must be 0, +1, or -1</ERROR>
-                  & CALL error_mesg('diag_axis_mod::diag_axis_init', 'direction must be 0, +1 or -1', FATAL)
-             Axes(diag_axis_init)%direction = direction
-          ELSE
-             Axes(diag_axis_init)%direction = 0
-          END IF
-
-          !---- Handle the DomainU check
-          IF (present(DomainU) .AND. (PRESENT(Domain2) .OR. PRESENT(Domain)) ) THEN
-             ! <ERROR STATUS="FATAL">Presence of DomainU and another Domain at the same time is prohibited</ERROR>
-             CALL error_mesg('diag_axis_mod::diag_axis_init',&
-                  & 'Presence of DomainU and another Domain at the same time is prohibited', FATAL)
-          !---- domain2d type ----
-          ELSE IF ( PRESENT(Domain2) .AND. PRESENT(Domain)) THEN
-             ! <ERROR STATUS="FATAL">Presence of both Domain and Domain2 at the same time is prohibited</ERROR>
-             CALL error_mesg('diag_axis_mod::diag_axis_init',&
-                  & 'Presence of both Domain and Domain2 at the same time is prohibited', FATAL)
-          ELSE IF ( PRESENT(Domain2) .OR. PRESENT(Domain)) THEN
-             IF ( Axes(diag_axis_init)%cart_name /= 'X' .AND. Axes(diag_axis_init)%cart_name /= 'Y') THEN
-                ! <ERROR STATUS="FATAL">Domain must not be present for an axis which is not in the X or Y direction.</ERROR>
-                CALL error_mesg('diag_axis_mod::diag_axis_init',&
-                     & 'A Structured Domain must not be present for an axis which is not in the X or Y direction', FATAL)
-             END IF
-          ELSE IF (present(DomainU) .AND. Axes(diag_axis_init)%cart_name /= 'U') THEN
-                CALL error_mesg('diag_axis_mod::diag_axis_init',&
-                     & 'In the unstructured domain, the axis cart_name must be U', FATAL)
-          END IF
-
-          Axes(diag_axis_init)%tile_count = tile
-
-          IF ( PRESENT(Domain2) ) THEN
-             Axes(diag_axis_init)%Domain2 = Domain2
-             CALL mpp_get_domain_components(Domain2, domain_x, domain_y, tile_count=tile_count)
-             IF ( Axes(diag_axis_init)%cart_name == 'X' ) Axes(diag_axis_init)%Domain = domain_x
-             IF ( Axes(diag_axis_init)%cart_name == 'Y' ) Axes(diag_axis_init)%Domain = domain_y
-             Axes(diag_axis_init)%DomainUG = null_DomainUG
-          ELSE IF ( PRESENT(Domain)) THEN
-             !---- domain1d type ----
-             Axes(diag_axis_init)%Domain2 = null_domain2d ! needed since not 2-D domain
-             Axes(diag_axis_init)%Domain = Domain
-             Axes(diag_axis_init)%DomainUG = null_DomainUG
-          ELSE IF (present(DomainU)) THEN
-             Axes(diag_axis_init)%Domain2 = null_domain2d
-             Axes(diag_axis_init)%Domain = null_domain1d
-             Axes(diag_axis_init)%DomainUG = DomainU
-          ELSE
-             Axes(diag_axis_init)%Domain2 = null_domain2d
-             Axes(diag_axis_init)%Domain = null_domain1d
-             Axes(diag_axis_init)%DomainUG = null_domainUG
-          END IF
-
-          !--- set up the shift value for x-y axis
-          IF ( Axes(diag_axis_init)%Domain .NE. null_domain1d ) THEN
-             CALL mpp_get_compute_domain(Axes(diag_axis_init)%Domain, isc, iec)
-             CALL mpp_get_global_domain(Axes(diag_axis_init)%Domain, isg, ieg)
-             IF ( Axes(diag_axis_init)%length == ieg - isg + 2 ) THEN
-                Axes(diag_axis_init)%shift = 1
-             END IF
-          END IF
-
-          !---- have axis edges been defined ? ----
-          Axes(diag_axis_init)%edges = 0
-          IF (PRESENT(edges) ) THEN
-             IF ( edges > 0 .AND. edges < num_def_axes ) THEN
-                ierr=0
-                IF ( Axes(edges)%cart_name /= Axes(diag_axis_init)%cart_name) ierr=1
-                IF ( Axes(edges)%length    /= Axes(diag_axis_init)%length+1 ) ierr=ierr+2
-                IF ( Axes(edges)%set       /= Axes(diag_axis_init)%set      ) ierr=ierr+4
-                IF ( ierr > 0 )   THEN
-                   ! <ERROR STATUS="FATAL">Edges axis does not match axis (code <CODE>).</ERROR>
-                   WRITE (emsg,'("Edges axis does not match axis (code ",I1,").")') ierr
-                   CALL error_mesg('diag_axis_mod::diag_axis_init', emsg, FATAL)
-                END IF
-                Axes(diag_axis_init)%edges = edges
-             ELSE
-                ! <ERROR STATUS="FATAL">Edges axis is not defined.</ERROR>
-                CALL error_mesg('diag_axis_mod::diag_axis_init', 'Edges axis is not defined', FATAL)
-             END IF
-          END IF
-       END SELECT
-    TYPE IS (real(r8_kind))
+       ! Initialize Axes(diag_axis_init)
+       Axes(diag_axis_init)%name   = TRIM(name)
        SELECT TYPE (Axes)
        TYPE IS (diag_axis_type_r8)
-          !---- see if axis already exists --
-          ! if this is time axis, return the ID of a previously defined
-          ! if this is spatial axis, FATAL error
-          DO i = 1, num_def_axes
-             IF ( TRIM(name) == Axes(i)%name ) THEN
-                IF ( TRIM(name) == 'Stations' .OR. TRIM(name) == 'Levels') THEN
-                   diag_axis_init = i
-                   RETURN
-                ELSE IF ( set == Axes(i)%set ) THEN
-                   IF ( TRIM(lowercase(name)) == 'time' .OR.&
-                        & TRIM(lowercase(cart_name)) == 't' .OR.&
-                        & TRIM(lowercase(name)) == 'nv' .OR.&
-                        & TRIM(lowercase(cart_name)) == 'n' ) THEN
-                      diag_axis_init = i
-                      RETURN
-                   ELSE IF ( (lowercase(cart_name) /= 'x' .AND. lowercase(cart_name) /= 'y')&
-                        & .OR. tile /= Axes(i)%tile_count) THEN
-                      ! <ERROR STATUS="FATAL">axis_name <NAME> and axis_set already exist.</ERROR>
-                      CALL error_mesg('diag_axis_mod::diag_axis_init',&
-                           & 'axis_name '//TRIM(name)//' and axis_set already exist.', FATAL)
-                   END IF
-                END IF
-             END IF
-          END DO
-
-          !---- register axis ----
-          num_def_axes = num_def_axes + 1
-          ! <ERROR STATUS="FATAL">max_axes exceeded, increase it via diag_manager_nml</ERROR>
-          IF (num_def_axes > max_axes) CALL error_mesg ('diag_axis_mod::diag_axis_init',&
-               & 'max_axes exceeded, increase via diag_manager_nml', FATAL)
-          diag_axis_init = num_def_axes
-
-          !---- check and then save cart_name name ----
-          IF ( TRIM(uppercase(cart_name)) == 'X' .OR.&
-               & TRIM(uppercase(cart_name)) == 'Y' .OR.&
-               & TRIM(uppercase(cart_name)) == 'Z' .OR.&
-               & TRIM(uppercase(cart_name)) == 'T' .OR.&
-               & TRIM(uppercase(cart_name)) == 'U' .OR.&
-               & TRIM(uppercase(cart_name)) == 'N' ) THEN
-             Axes(diag_axis_init)%cart_name = TRIM(uppercase(cart_name))
-          ELSE
-             ! <ERROR STATUS="FATAL">Invalid cart_name name.</ERROR>
-             CALL error_mesg('diag_axis_mod::diag_axis_init', 'Invalid cart_name name. '//TRIM(uppercase(cart_name)), FATAL)
-          END IF
-
-          !---- allocate storage for coordinate values of axis ----
-          IF ( Axes(diag_axis_init)%cart_name == 'T' ) THEN
-             axlen = 0
-          ELSE
-             axlen = SIZE(DATA(:))
-          END IF
           ALLOCATE ( Axes(diag_axis_init)%data(1:axlen) )
-
-          ! Initialize Axes(diag_axis_init)
-          Axes(diag_axis_init)%name   = TRIM(name)
           Axes(diag_axis_init)%data   = DATA(1:axlen)
-          Axes(diag_axis_init)%units  = units
-          Axes(diag_axis_init)%length = axlen
-          Axes(diag_axis_init)%set    = set
-          ! start and end are used in subaxes information only
-          Axes(diag_axis_init)%start = -1
-          Axes(diag_axis_init)%end = -1
-          Axes(diag_axis_init)%subaxis_name = ""
-          Axes(diag_axis_init)%shift = 0
-          Axes(diag_axis_init)%num_attributes = 0
-
-          IF ( PRESENT(long_name) ) THEN
-             Axes(diag_axis_init)%long_name = long_name
-          ELSE
-             Axes(diag_axis_init)%long_name = name
-          END IF
-
-          IF ( PRESENT(aux) ) THEN
-             Axes(diag_axis_init)%aux = TRIM(aux)
-          ELSE
-             Axes(diag_axis_init)%aux = 'none'
-          END IF
-
-          IF ( PRESENT(req) ) THEN
-             Axes(diag_axis_init)%req = TRIM(req)
-          ELSE
-             Axes(diag_axis_init)%req = 'none'
-          END IF
-          IF ( PRESENT(domain_position) ) THEN
-             if (domain_position == NORTH .or. domain_position == EAST .or. domain_position == CENTER) then
-                Axes(diag_axis_init)%domain_position = domain_position
-             else
-                CALL error_mesg('diag_axis_mod::diag_axis_init', "Position must be NORTH, EAST, or CENTER" ,&
-                               FATAL)
-             endif
-          ELSE
-             Axes(diag_axis_init)%domain_position = CENTER
-          END IF
-
-          !---- axis direction (-1, 0, or +1) ----
-          IF ( PRESENT(direction) )THEN
-             IF ( ABS(direction) /= 1 .AND. direction /= 0 )&
-                  ! <ERROR STATUS="FATAL">direction must be 0, +1, or -1</ERROR>
-                  & CALL error_mesg('diag_axis_mod::diag_axis_init', 'direction must be 0, +1 or -1', FATAL)
-             Axes(diag_axis_init)%direction = direction
-          ELSE
-             Axes(diag_axis_init)%direction = 0
-          END IF
-
-          !---- Handle the DomainU check
-          IF (present(DomainU) .AND. (PRESENT(Domain2) .OR. PRESENT(Domain)) ) THEN
-             ! <ERROR STATUS="FATAL">Presence of DomainU and another Domain at the same time is prohibited</ERROR>
-             CALL error_mesg('diag_axis_mod::diag_axis_init',&
-                  & 'Presence of DomainU and another Domain at the same time is prohibited', FATAL)
-          !---- domain2d type ----
-          ELSE IF ( PRESENT(Domain2) .AND. PRESENT(Domain)) THEN
-             ! <ERROR STATUS="FATAL">Presence of both Domain and Domain2 at the same time is prohibited</ERROR>
-             CALL error_mesg('diag_axis_mod::diag_axis_init',&
-                  & 'Presence of both Domain and Domain2 at the same time is prohibited', FATAL)
-          ELSE IF ( PRESENT(Domain2) .OR. PRESENT(Domain)) THEN
-             IF ( Axes(diag_axis_init)%cart_name /= 'X' .AND. Axes(diag_axis_init)%cart_name /= 'Y') THEN
-                ! <ERROR STATUS="FATAL">Domain must not be present for an axis which is not in the X or Y direction.</ERROR>
-                CALL error_mesg('diag_axis_mod::diag_axis_init',&
-                     & 'A Structured Domain must not be present for an axis which is not in the X or Y direction', FATAL)
-             END IF
-          ELSE IF (present(DomainU) .AND. Axes(diag_axis_init)%cart_name /= 'U') THEN
-                CALL error_mesg('diag_axis_mod::diag_axis_init',&
-                     & 'In the unstructured domain, the axis cart_name must be U', FATAL)
-          END IF
-
-          Axes(diag_axis_init)%tile_count = tile
-
-          IF ( PRESENT(Domain2) ) THEN
-             Axes(diag_axis_init)%Domain2 = Domain2
-             CALL mpp_get_domain_components(Domain2, domain_x, domain_y, tile_count=tile_count)
-             IF ( Axes(diag_axis_init)%cart_name == 'X' ) Axes(diag_axis_init)%Domain = domain_x
-             IF ( Axes(diag_axis_init)%cart_name == 'Y' ) Axes(diag_axis_init)%Domain = domain_y
-             Axes(diag_axis_init)%DomainUG = null_DomainUG
-          ELSE IF ( PRESENT(Domain)) THEN
-             !---- domain1d type ----
-             Axes(diag_axis_init)%Domain2 = null_domain2d ! needed since not 2-D domain
-             Axes(diag_axis_init)%Domain = Domain
-             Axes(diag_axis_init)%DomainUG = null_DomainUG
-          ELSE IF (present(DomainU)) THEN
-             Axes(diag_axis_init)%Domain2 = null_domain2d
-             Axes(diag_axis_init)%Domain = null_domain1d
-             Axes(diag_axis_init)%DomainUG = DomainU
-          ELSE
-             Axes(diag_axis_init)%Domain2 = null_domain2d
-             Axes(diag_axis_init)%Domain = null_domain1d
-             Axes(diag_axis_init)%DomainUG = null_domainUG
-          END IF
-
-          !--- set up the shift value for x-y axis
-          IF ( Axes(diag_axis_init)%Domain .NE. null_domain1d ) THEN
-             CALL mpp_get_compute_domain(Axes(diag_axis_init)%Domain, isc, iec)
-             CALL mpp_get_global_domain(Axes(diag_axis_init)%Domain, isg, ieg)
-             IF ( Axes(diag_axis_init)%length == ieg - isg + 2 ) THEN
-                Axes(diag_axis_init)%shift = 1
-             END IF
-          END IF
-
-          !---- have axis edges been defined ? ----
-          Axes(diag_axis_init)%edges = 0
-          IF (PRESENT(edges) ) THEN
-             IF ( edges > 0 .AND. edges < num_def_axes ) THEN
-                ierr=0
-                IF ( Axes(edges)%cart_name /= Axes(diag_axis_init)%cart_name) ierr=1
-                IF ( Axes(edges)%length    /= Axes(diag_axis_init)%length+1 ) ierr=ierr+2
-                IF ( Axes(edges)%set       /= Axes(diag_axis_init)%set      ) ierr=ierr+4
-                IF ( ierr > 0 )   THEN
-                   ! <ERROR STATUS="FATAL">Edges axis does not match axis (code <CODE>).</ERROR>
-                   WRITE (emsg,'("Edges axis does not match axis (code ",I1,").")') ierr
-                   CALL error_mesg('diag_axis_mod::diag_axis_init', emsg, FATAL)
-                END IF
-                Axes(diag_axis_init)%edges = edges
-             ELSE
-                ! <ERROR STATUS="FATAL">Edges axis is not defined.</ERROR>
-                CALL error_mesg('diag_axis_mod::diag_axis_init', 'Edges axis is not defined', FATAL)
-             END IF
-          END IF
        END SELECT
+       Axes(diag_axis_init)%units  = units
+       Axes(diag_axis_init)%length = axlen
+       Axes(diag_axis_init)%set    = set
+       ! start and end are used in subaxes information only
+       Axes(diag_axis_init)%start = -1
+       Axes(diag_axis_init)%end = -1
+       Axes(diag_axis_init)%subaxis_name = ""
+       Axes(diag_axis_init)%shift = 0
+       Axes(diag_axis_init)%num_attributes = 0
+
+       IF ( PRESENT(long_name) ) THEN
+          Axes(diag_axis_init)%long_name = long_name
+       ELSE
+          Axes(diag_axis_init)%long_name = name
+       END IF
+
+       IF ( PRESENT(aux) ) THEN
+          Axes(diag_axis_init)%aux = TRIM(aux)
+       ELSE
+          Axes(diag_axis_init)%aux = 'none'
+       END IF
+
+       IF ( PRESENT(req) ) THEN
+          Axes(diag_axis_init)%req = TRIM(req)
+       ELSE
+          Axes(diag_axis_init)%req = 'none'
+       END IF
+       IF ( PRESENT(domain_position) ) THEN
+          if (domain_position == NORTH .or. domain_position == EAST .or. domain_position == CENTER) then
+             Axes(diag_axis_init)%domain_position = domain_position
+          else
+             CALL error_mesg('diag_axis_mod::diag_axis_init', "Position must be NORTH, EAST, or CENTER" ,&
+                            FATAL)
+          endif
+       ELSE
+          Axes(diag_axis_init)%domain_position = CENTER
+       END IF
+
+       !---- axis direction (-1, 0, or +1) ----
+       IF ( PRESENT(direction) )THEN
+          IF ( ABS(direction) /= 1 .AND. direction /= 0 )&
+               ! <ERROR STATUS="FATAL">direction must be 0, +1, or -1</ERROR>
+               & CALL error_mesg('diag_axis_mod::diag_axis_init', 'direction must be 0, +1 or -1', FATAL)
+          Axes(diag_axis_init)%direction = direction
+       ELSE
+          Axes(diag_axis_init)%direction = 0
+       END IF
+
+       !---- Handle the DomainU check
+       IF (present(DomainU) .AND. (PRESENT(Domain2) .OR. PRESENT(Domain)) ) THEN
+          ! <ERROR STATUS="FATAL">Presence of DomainU and another Domain at the same time is prohibited</ERROR>
+          CALL error_mesg('diag_axis_mod::diag_axis_init',&
+               & 'Presence of DomainU and another Domain at the same time is prohibited', FATAL)
+       !---- domain2d type ----
+       ELSE IF ( PRESENT(Domain2) .AND. PRESENT(Domain)) THEN
+          ! <ERROR STATUS="FATAL">Presence of both Domain and Domain2 at the same time is prohibited</ERROR>
+          CALL error_mesg('diag_axis_mod::diag_axis_init',&
+               & 'Presence of both Domain and Domain2 at the same time is prohibited', FATAL)
+       ELSE IF ( PRESENT(Domain2) .OR. PRESENT(Domain)) THEN
+          IF ( Axes(diag_axis_init)%cart_name /= 'X' .AND. Axes(diag_axis_init)%cart_name /= 'Y') THEN
+             ! <ERROR STATUS="FATAL">Domain must not be present for an axis which is not in the X or Y direction.</ERROR>
+             CALL error_mesg('diag_axis_mod::diag_axis_init',&
+                  & 'A Structured Domain must not be present for an axis which is not in the X or Y direction', FATAL)
+          END IF
+       ELSE IF (present(DomainU) .AND. Axes(diag_axis_init)%cart_name /= 'U') THEN
+             CALL error_mesg('diag_axis_mod::diag_axis_init',&
+                  & 'In the unstructured domain, the axis cart_name must be U', FATAL)
+       END IF
+
+       Axes(diag_axis_init)%tile_count = tile
+
+       IF ( PRESENT(Domain2) ) THEN
+          Axes(diag_axis_init)%Domain2 = Domain2
+          CALL mpp_get_domain_components(Domain2, domain_x, domain_y, tile_count=tile_count)
+          IF ( Axes(diag_axis_init)%cart_name == 'X' ) Axes(diag_axis_init)%Domain = domain_x
+          IF ( Axes(diag_axis_init)%cart_name == 'Y' ) Axes(diag_axis_init)%Domain = domain_y
+          Axes(diag_axis_init)%DomainUG = null_DomainUG
+       ELSE IF ( PRESENT(Domain)) THEN
+          !---- domain1d type ----
+          Axes(diag_axis_init)%Domain2 = null_domain2d ! needed since not 2-D domain
+          Axes(diag_axis_init)%Domain = Domain
+          Axes(diag_axis_init)%DomainUG = null_DomainUG
+       ELSE IF (present(DomainU)) THEN
+          Axes(diag_axis_init)%Domain2 = null_domain2d
+          Axes(diag_axis_init)%Domain = null_domain1d
+          Axes(diag_axis_init)%DomainUG = DomainU
+       ELSE
+          Axes(diag_axis_init)%Domain2 = null_domain2d
+          Axes(diag_axis_init)%Domain = null_domain1d
+          Axes(diag_axis_init)%DomainUG = null_domainUG
+       END IF
+
+       !--- set up the shift value for x-y axis
+       IF ( Axes(diag_axis_init)%Domain .NE. null_domain1d ) THEN
+          CALL mpp_get_compute_domain(Axes(diag_axis_init)%Domain, isc, iec)
+          CALL mpp_get_global_domain(Axes(diag_axis_init)%Domain, isg, ieg)
+          IF ( Axes(diag_axis_init)%length == ieg - isg + 2 ) THEN
+             Axes(diag_axis_init)%shift = 1
+          END IF
+       END IF
+
+       !---- have axis edges been defined ? ----
+       Axes(diag_axis_init)%edges = 0
+       IF (PRESENT(edges) ) THEN
+          IF ( edges > 0 .AND. edges < num_def_axes ) THEN
+             ierr=0
+             IF ( Axes(edges)%cart_name /= Axes(diag_axis_init)%cart_name) ierr=1
+             IF ( Axes(edges)%length    /= Axes(diag_axis_init)%length+1 ) ierr=ierr+2
+             IF ( Axes(edges)%set       /= Axes(diag_axis_init)%set      ) ierr=ierr+4
+             IF ( ierr > 0 )   THEN
+                ! <ERROR STATUS="FATAL">Edges axis does not match axis (code <CODE>).</ERROR>
+                WRITE (emsg,'("Edges axis does not match axis (code ",I1,").")') ierr
+                CALL error_mesg('diag_axis_mod::diag_axis_init', emsg, FATAL)
+             END IF
+             Axes(diag_axis_init)%edges = edges
+          ELSE
+             ! <ERROR STATUS="FATAL">Edges axis is not defined.</ERROR>
+             CALL error_mesg('diag_axis_mod::diag_axis_init', 'Edges axis is not defined', FATAL)
+          END IF
+       END IF
     END SELECT
 
     ! Module is now initialized
