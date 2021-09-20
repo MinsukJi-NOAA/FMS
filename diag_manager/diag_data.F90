@@ -231,7 +231,6 @@ use platform_mod
      INTEGER :: numthreads
      INTEGER :: active_omp_level !< The current level of OpenMP nesting
      INTEGER :: tile_count
-     TYPE(coord_type) :: local_coord
      TYPE(time_type)  :: time
      LOGICAL :: issued_mask_ignore_warning !< Indicates if the mask_ignore_warning
                                            !! has been issued for this input
@@ -241,11 +240,13 @@ use platform_mod
   END TYPE input_field_type
 
   type, extends(input_field_type) :: input_field_type_r4
+     TYPE(coord_type_r4) :: local_coord
      REAL(r4_kind) :: missing_value
      REAL(r4_kind), DIMENSION(2) :: range
   end type input_field_type_r4
 
   type, extends(input_field_type) :: input_field_type_r8
+     TYPE(coord_type_r8) :: local_coord
      REAL(r8_kind) :: missing_value
      REAL(r8_kind), DIMENSION(2) :: range
   end type input_field_type_r8
