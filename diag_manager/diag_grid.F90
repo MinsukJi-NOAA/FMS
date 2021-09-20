@@ -1057,6 +1057,7 @@ CONTAINS
        end select
     type is (real(r8_kind))
        select type (lon)
+       type is (real(r8_kind))
           IF ( MOD(diag_global_grid%tile_number,3) == 0 ) THEN
              IF ( lat > 30.0 .AND. diag_global_grid%tile_number == 3 ) THEN
                 indexes(:) = find_pole_index_agrid(lat,lon)
@@ -1066,7 +1067,6 @@ CONTAINS
           ELSE
              indexes(:) = find_equator_index_agrid(lat,lon)
           END IF
-       type is (real(r8_kind))
        end select
     end select
 
@@ -1166,284 +1166,290 @@ CONTAINS
     type is (real(r4_kind))
        select type (lon)
        type is (real(r4_kind))
-          allocate(llat_r4, llon_r4, maxCtrDist_r4)
-          allocate(pntDistances_r4(4))
-          allocate(origPt_r4)
-          allocate(cornerPts_r4(4,2))
-          allocate(points_r4(9))
-          allocate(distSqrd_r4(9))
+          select type (diag_global_grid)
+          type is (diag_global_grid_type_r4)
+             allocate(llat_r4, llon_r4, maxCtrDist_r4)
+             allocate(pntDistances_r4(4))
+             allocate(origPt_r4)
+             allocate(cornerPts_r4(4,2))
+             allocate(points_r4(9))
+             allocate(distSqrd_r4(9))
 
-          ! Since the poles have an non-unique longitude value, make a small correction if looking for one of the poles.
-          IF ( lat == 90.0 ) THEN
-             llat_r4 = lat - .1
-          ELSE IF ( lat == -90.0 ) THEN
-             llat_r4 = lat + .1
-          ELSE
-             llat_r4 = lat
-          END IF
-          llon_r4 = lon
+             ! Since the poles have an non-unique longitude value, make a small correction if looking for one of the poles.
+             IF ( lat == 90.0 ) THEN
+                llat_r4 = lat - .1
+             ELSE IF ( lat == -90.0 ) THEN
+                llat_r4 = lat + .1
+             ELSE
+                llat_r4 = lat
+             END IF
+             llon_r4 = lon
 
-          origPt_r4 = latlon2xyz_r4(llat_r4,llon_r4)
+             origPt_r4 = latlon2xyz_r4(llat_r4,llon_r4)
 
-          iLoop: DO i=0, dimI-2
-             jLoop: DO j = 0, dimJ-2
-                cornerPts_r4 = RESHAPE( (/ diag_global_grid%aglo_lat(i,  j),  diag_global_grid%aglo_lon(i,  j),&
-                     &                     diag_global_grid%aglo_lat(i+1,j+1),diag_global_grid%aglo_lon(i+1,j+1),&
-                     &                     diag_global_grid%aglo_lat(i+1,j),  diag_global_grid%aglo_lon(i+1,j),&
-                     &                     diag_global_grid%aglo_lat(i,  j+1),diag_global_grid%aglo_lon(i,  j+1) /),&
-                     &                  (/ 4, 2 /), ORDER=(/2,1/) )
-                ! Find the maximum half distance of the corner points
-                maxCtrDist_r4 = MAX(gCirDistance_r4(cornerPts_r4(1,1),cornerPts_r4(1,2), cornerPts_r4(2,1),cornerPts_r4(2,2)),&
-                     &              gCirDistance_r4(cornerPts_r4(3,1),cornerPts_r4(3,2), cornerPts_r4(4,1),cornerPts_r4(4,2)))
+             iLoop: DO i=0, dimI-2
+                jLoop: DO j = 0, dimJ-2
+                   cornerPts_r4 = RESHAPE( (/ diag_global_grid%aglo_lat(i,  j),  diag_global_grid%aglo_lon(i,  j),&
+                        &                     diag_global_grid%aglo_lat(i+1,j+1),diag_global_grid%aglo_lon(i+1,j+1),&
+                        &                     diag_global_grid%aglo_lat(i+1,j),  diag_global_grid%aglo_lon(i+1,j),&
+                        &                     diag_global_grid%aglo_lat(i,  j+1),diag_global_grid%aglo_lon(i,  j+1) /),&
+                        &                  (/ 4, 2 /), ORDER=(/2,1/) )
+                   ! Find the maximum half distance of the corner points
+                   maxCtrDist_r4 = MAX(gCirDistance_r4(cornerPts_r4(1,1),cornerPts_r4(1,2), cornerPts_r4(2,1),cornerPts_r4(2,2)),&
+                        &              gCirDistance_r4(cornerPts_r4(3,1),cornerPts_r4(3,2), cornerPts_r4(4,1),cornerPts_r4(4,2)))
 
-                ! Find the distance of the four corner points to the point of interest.
-                pntDistances_r4 = gCirDistance_r4(cornerPts_r4(:,1),cornerPts_r4(:,2), llat_r4,llon_r4)
+                   ! Find the distance of the four corner points to the point of interest.
+                   pntDistances_r4 = gCirDistance_r4(cornerPts_r4(:,1),cornerPts_r4(:,2), llat_r4,llon_r4)
 
-                IF ( (MINVAL(pntDistances_r4) <= maxCtrDist_r4) .AND. (i*j.NE.0) ) THEN
-                   ! Set up the i,j index array
-                   ijArray = RESHAPE( (/ i, j, i+1, j+1, i+1, j, i, j+1 /), (/ 4, 2 /), ORDER=(/2,1/) )
+                   IF ( (MINVAL(pntDistances_r4) <= maxCtrDist_r4) .AND. (i*j.NE.0) ) THEN
+                      ! Set up the i,j index array
+                      ijArray = RESHAPE( (/ i, j, i+1, j+1, i+1, j, i, j+1 /), (/ 4, 2 /), ORDER=(/2,1/) )
 
-                   ! the nearest point index
-                   nearestCorner = MINLOC(pntDistances_r4,1)
+                      ! the nearest point index
+                      nearestCorner = MINLOC(pntDistances_r4,1)
 
-                   indxI = ijArray(nearestCorner,1)
-                   indxJ = ijArray(nearestCorner,2)
+                      indxI = ijArray(nearestCorner,1)
+                      indxJ = ijArray(nearestCorner,2)
 
-                   EXIT iLoop
-                END IF
-             END DO jLoop
-          END DO iLoop
-
-
-          ! Make sure we have indexes in the correct range
-          valid: IF (  (indxI <= 0 .OR. dimI-1 <= indxI) .OR. &
-               &       (indxJ <= 0 .OR. dimJ-1 <= indxJ) ) THEN
-             indxI = 0
-             indxJ = 0
-          ELSE ! indxI and indxJ are valid.
-             ! Since we are looking for the closest grid point to the
-             ! (lat,lon) point, we need to check the surrounding
-             ! points.  The indexes for the variable points are as follows
-             !
-             ! 1---4---7
-             ! |   |   |
-             ! 2---5---8
-             ! |   |   |
-             ! 3---6---9
-
-             ! Set the 'default' values for points(:) x,y,z to some large
-             ! value.
-             DO i=1, 9
-                points_r4(i)%x = 1.0e20
-                points_r4(i)%y = 1.0e20
-                points_r4(i)%z = 1.0e20
-             END DO
-
-             ! All the points around the i,j indexes
-             points_r4(1) = latlon2xyz_r4(diag_global_grid%aglo_lat(indxI-1,indxJ+1),&
-                  &                       diag_global_grid%aglo_lon(indxI-1,indxJ+1))
-             points_r4(2) = latlon2xyz_r4(diag_global_grid%aglo_lat(indxI-1,indxJ),&
-                  &                       diag_global_grid%aglo_lon(indxI-1,indxJ))
-             points_r4(3) = latlon2xyz_r4(diag_global_grid%aglo_lat(indxI-1,indxJ-1),&
-                  &                       diag_global_grid%aglo_lon(indxI-1,indxJ-1))
-             points_r4(4) = latlon2xyz_r4(diag_global_grid%aglo_lat(indxI,  indxJ+1),&
-                  &                       diag_global_grid%aglo_lon(indxI,  indxJ+1))
-             points_r4(5) = latlon2xyz_r4(diag_global_grid%aglo_lat(indxI,  indxJ),&
-                  &                       diag_global_grid%aglo_lon(indxI,  indxJ))
-             points_r4(6) = latlon2xyz_r4(diag_global_grid%aglo_lat(indxI,  indxJ-1),&
-                  &                       diag_global_grid%aglo_lon(indxI,  indxJ-1))
-             points_r4(7) = latlon2xyz_r4(diag_global_grid%aglo_lat(indxI+1,indxJ+1),&
-                  &                       diag_global_grid%aglo_lon(indxI+1,indxJ+1))
-             points_r4(8) = latlon2xyz_r4(diag_global_grid%aglo_lat(indxI+1,indxJ),&
-                  &                       diag_global_grid%aglo_lon(indxI+1,indxJ))
-             points_r4(9) = latlon2xyz_r4(diag_global_grid%aglo_lat(indxI+1,indxJ-1),&
-                  &                       diag_global_grid%aglo_lon(indxI+1,indxJ-1))
+                      EXIT iLoop
+                   END IF
+                END DO jLoop
+             END DO iLoop
 
 
-             ! Calculate the distance squared between the points(:) and the origPt
-             distSqrd_r4 = distanceSqrd_r4(origPt_r4, points_r4)
-
-             SELECT CASE (MINLOC(distSqrd_r4,1))
-             CASE ( 1 )
-                indxI = indxI-1
-                indxJ = indxJ+1
-             CASE ( 2 )
-                indxI = indxI-1
-                indxJ = indxJ
-             CASE ( 3 )
-                indxI = indxI-1
-                indxJ = indxJ-1
-             CASE ( 4 )
-                indxI = indxI
-                indxJ = indxJ+1
-             CASE ( 5 )
-                indxI = indxI
-                indxJ = indxJ
-             CASE ( 6 )
-                indxI = indxI
-                indxJ = indxJ-1
-             CASE ( 7 )
-                indxI = indxI+1
-                indxJ = indxJ+1
-             CASE ( 8 )
-                indxI = indxI+1
-                indxJ = indxJ
-             CASE ( 9 )
-                indxI = indxI+1
-                indxJ = indxJ-1
-             CASE DEFAULT
+             ! Make sure we have indexes in the correct range
+             valid: IF (  (indxI <= 0 .OR. dimI-1 <= indxI) .OR. &
+                  &       (indxJ <= 0 .OR. dimJ-1 <= indxJ) ) THEN
                 indxI = 0
                 indxJ = 0
-             END SELECT
-          END IF valid
+             ELSE ! indxI and indxJ are valid.
+                ! Since we are looking for the closest grid point to the
+                ! (lat,lon) point, we need to check the surrounding
+                ! points.  The indexes for the variable points are as follows
+                !
+                ! 1---4---7
+                ! |   |   |
+                ! 2---5---8
+                ! |   |   |
+                ! 3---6---9
 
-          deallocate(llat_r4, llon_r4, maxCtrDist_r4)
-          deallocate(pntDistances_r4)
-          deallocate(origPt_r4)
-          deallocate(cornerPts_r4)
-          deallocate(points_r4)
-          deallocate(distSqrd_r4)
+                ! Set the 'default' values for points(:) x,y,z to some large
+                ! value.
+                DO i=1, 9
+                   points_r4(i)%x = 1.0e20
+                   points_r4(i)%y = 1.0e20
+                   points_r4(i)%z = 1.0e20
+                END DO
+
+                ! All the points around the i,j indexes
+                points_r4(1) = latlon2xyz_r4(diag_global_grid%aglo_lat(indxI-1,indxJ+1),&
+                     &                       diag_global_grid%aglo_lon(indxI-1,indxJ+1))
+                points_r4(2) = latlon2xyz_r4(diag_global_grid%aglo_lat(indxI-1,indxJ),&
+                     &                       diag_global_grid%aglo_lon(indxI-1,indxJ))
+                points_r4(3) = latlon2xyz_r4(diag_global_grid%aglo_lat(indxI-1,indxJ-1),&
+                     &                       diag_global_grid%aglo_lon(indxI-1,indxJ-1))
+                points_r4(4) = latlon2xyz_r4(diag_global_grid%aglo_lat(indxI,  indxJ+1),&
+                     &                       diag_global_grid%aglo_lon(indxI,  indxJ+1))
+                points_r4(5) = latlon2xyz_r4(diag_global_grid%aglo_lat(indxI,  indxJ),&
+                     &                       diag_global_grid%aglo_lon(indxI,  indxJ))
+                points_r4(6) = latlon2xyz_r4(diag_global_grid%aglo_lat(indxI,  indxJ-1),&
+                     &                       diag_global_grid%aglo_lon(indxI,  indxJ-1))
+                points_r4(7) = latlon2xyz_r4(diag_global_grid%aglo_lat(indxI+1,indxJ+1),&
+                     &                       diag_global_grid%aglo_lon(indxI+1,indxJ+1))
+                points_r4(8) = latlon2xyz_r4(diag_global_grid%aglo_lat(indxI+1,indxJ),&
+                     &                       diag_global_grid%aglo_lon(indxI+1,indxJ))
+                points_r4(9) = latlon2xyz_r4(diag_global_grid%aglo_lat(indxI+1,indxJ-1),&
+                     &                       diag_global_grid%aglo_lon(indxI+1,indxJ-1))
+
+
+                ! Calculate the distance squared between the points(:) and the origPt
+                distSqrd_r4 = distanceSqrd_r4(origPt_r4, points_r4)
+
+                SELECT CASE (MINLOC(distSqrd_r4,1))
+                CASE ( 1 )
+                   indxI = indxI-1
+                   indxJ = indxJ+1
+                CASE ( 2 )
+                   indxI = indxI-1
+                   indxJ = indxJ
+                CASE ( 3 )
+                   indxI = indxI-1
+                   indxJ = indxJ-1
+                CASE ( 4 )
+                   indxI = indxI
+                   indxJ = indxJ+1
+                CASE ( 5 )
+                   indxI = indxI
+                   indxJ = indxJ
+                CASE ( 6 )
+                   indxI = indxI
+                   indxJ = indxJ-1
+                CASE ( 7 )
+                   indxI = indxI+1
+                   indxJ = indxJ+1
+                CASE ( 8 )
+                   indxI = indxI+1
+                   indxJ = indxJ
+                CASE ( 9 )
+                   indxI = indxI+1
+                   indxJ = indxJ-1
+                CASE DEFAULT
+                   indxI = 0
+                   indxJ = 0
+                END SELECT
+             END IF valid
+
+             deallocate(llat_r4, llon_r4, maxCtrDist_r4)
+             deallocate(pntDistances_r4)
+             deallocate(origPt_r4)
+             deallocate(cornerPts_r4)
+             deallocate(points_r4)
+             deallocate(distSqrd_r4)
+          end select
        end select
     type is (real(r8_kind))
        select type (lon)
        type is (real(r8_kind))
-          allocate(llat_r8, llon_r8, maxCtrDist_r8)
-          allocate(pntDistances_r8(4))
-          allocate(origPt_r8)
-          allocate(cornerPts_r8(4,2))
-          allocate(points_r8(9))
-          allocate(distSqrd_r8(9))
+          select type (diag_global_grid)
+          type is (diag_global_grid_type_r8)
+             allocate(llat_r8, llon_r8, maxCtrDist_r8)
+             allocate(pntDistances_r8(4))
+             allocate(origPt_r8)
+             allocate(cornerPts_r8(4,2))
+             allocate(points_r8(9))
+             allocate(distSqrd_r8(9))
 
-          ! Since the poles have an non-unique longitude value, make a small correction if looking for one of the poles.
-          IF ( lat == 90.0 ) THEN
-             llat_r8 = lat - .1
-          ELSE IF ( lat == -90.0 ) THEN
-             llat_r8 = lat + .1
-          ELSE
-             llat_r8 = lat
-          END IF
-          llon_r8 = lon
+             ! Since the poles have an non-unique longitude value, make a small correction if looking for one of the poles.
+             IF ( lat == 90.0 ) THEN
+                llat_r8 = lat - .1
+             ELSE IF ( lat == -90.0 ) THEN
+                llat_r8 = lat + .1
+             ELSE
+                llat_r8 = lat
+             END IF
+             llon_r8 = lon
 
-          origPt_r8 = latlon2xyz_r8(llat_r8,llon_r8)
+             origPt_r8 = latlon2xyz_r8(llat_r8,llon_r8)
 
-          iLoop: DO i=0, dimI-2
-             jLoop: DO j = 0, dimJ-2
-                cornerPts_r8 = RESHAPE( (/ diag_global_grid%aglo_lat(i,  j),  diag_global_grid%aglo_lon(i,  j),&
-                     &                     diag_global_grid%aglo_lat(i+1,j+1),diag_global_grid%aglo_lon(i+1,j+1),&
-                     &                     diag_global_grid%aglo_lat(i+1,j),  diag_global_grid%aglo_lon(i+1,j),&
-                     &                     diag_global_grid%aglo_lat(i,  j+1),diag_global_grid%aglo_lon(i,  j+1) /),&
-                     &                  (/ 4, 2 /), ORDER=(/2,1/) )
-                ! Find the maximum half distance of the corner points
-                maxCtrDist_r8 = MAX(gCirDistance_r8(cornerPts_r8(1,1),cornerPts_r8(1,2), cornerPts_r8(2,1),cornerPts_r8(2,2)),&
-                     &              gCirDistance_r8(cornerPts_r8(3,1),cornerPts_r8(3,2), cornerPts_r8(4,1),cornerPts_r8(4,2)))
+             iLoop: DO i=0, dimI-2
+                jLoop: DO j = 0, dimJ-2
+                   cornerPts_r8 = RESHAPE( (/ diag_global_grid%aglo_lat(i,  j),  diag_global_grid%aglo_lon(i,  j),&
+                        &                     diag_global_grid%aglo_lat(i+1,j+1),diag_global_grid%aglo_lon(i+1,j+1),&
+                        &                     diag_global_grid%aglo_lat(i+1,j),  diag_global_grid%aglo_lon(i+1,j),&
+                        &                     diag_global_grid%aglo_lat(i,  j+1),diag_global_grid%aglo_lon(i,  j+1) /),&
+                        &                  (/ 4, 2 /), ORDER=(/2,1/) )
+                   ! Find the maximum half distance of the corner points
+                   maxCtrDist_r8 = MAX(gCirDistance_r8(cornerPts_r8(1,1),cornerPts_r8(1,2), cornerPts_r8(2,1),cornerPts_r8(2,2)),&
+                        &              gCirDistance_r8(cornerPts_r8(3,1),cornerPts_r8(3,2), cornerPts_r8(4,1),cornerPts_r8(4,2)))
 
-                ! Find the distance of the four corner points to the point of interest.
-                pntDistances_r8 = gCirDistance_r8(cornerPts_r8(:,1),cornerPts_r8(:,2), llat_r8,llon_r8)
+                   ! Find the distance of the four corner points to the point of interest.
+                   pntDistances_r8 = gCirDistance_r8(cornerPts_r8(:,1),cornerPts_r8(:,2), llat_r8,llon_r8)
 
-                IF ( (MINVAL(pntDistances_r8) <= maxCtrDist_r8) .AND. (i*j.NE.0) ) THEN
-                   ! Set up the i,j index array
-                   ijArray = RESHAPE( (/ i, j, i+1, j+1, i+1, j, i, j+1 /), (/ 4, 2 /), ORDER=(/2,1/) )
+                   IF ( (MINVAL(pntDistances_r8) <= maxCtrDist_r8) .AND. (i*j.NE.0) ) THEN
+                      ! Set up the i,j index array
+                      ijArray = RESHAPE( (/ i, j, i+1, j+1, i+1, j, i, j+1 /), (/ 4, 2 /), ORDER=(/2,1/) )
 
-                   ! the nearest point index
-                   nearestCorner = MINLOC(pntDistances_r8,1)
+                      ! the nearest point index
+                      nearestCorner = MINLOC(pntDistances_r8,1)
 
-                   indxI = ijArray(nearestCorner,1)
-                   indxJ = ijArray(nearestCorner,2)
+                      indxI = ijArray(nearestCorner,1)
+                      indxJ = ijArray(nearestCorner,2)
 
-                   EXIT iLoop
-                END IF
-             END DO jLoop
-          END DO iLoop
-
-
-          ! Make sure we have indexes in the correct range
-          valid: IF (  (indxI <= 0 .OR. dimI-1 <= indxI) .OR. &
-               &       (indxJ <= 0 .OR. dimJ-1 <= indxJ) ) THEN
-             indxI = 0
-             indxJ = 0
-          ELSE ! indxI and indxJ are valid.
-             ! Since we are looking for the closest grid point to the
-             ! (lat,lon) point, we need to check the surrounding
-             ! points.  The indexes for the variable points are as follows
-             !
-             ! 1---4---7
-             ! |   |   |
-             ! 2---5---8
-             ! |   |   |
-             ! 3---6---9
-
-             ! Set the 'default' values for points(:) x,y,z to some large
-             ! value.
-             DO i=1, 9
-                points_r8(i)%x = 1.0e20
-                points_r8(i)%y = 1.0e20
-                points_r8(i)%z = 1.0e20
-             END DO
-
-             ! All the points around the i,j indexes
-             points_r8(1) = latlon2xyz_r8(diag_global_grid%aglo_lat(indxI-1,indxJ+1),&
-                  &                       diag_global_grid%aglo_lon(indxI-1,indxJ+1))
-             points_r8(2) = latlon2xyz_r8(diag_global_grid%aglo_lat(indxI-1,indxJ),&
-                  &                       diag_global_grid%aglo_lon(indxI-1,indxJ))
-             points_r8(3) = latlon2xyz_r8(diag_global_grid%aglo_lat(indxI-1,indxJ-1),&
-                  &                       diag_global_grid%aglo_lon(indxI-1,indxJ-1))
-             points_r8(4) = latlon2xyz_r8(diag_global_grid%aglo_lat(indxI,  indxJ+1),&
-                  &                       diag_global_grid%aglo_lon(indxI,  indxJ+1))
-             points_r8(5) = latlon2xyz_r8(diag_global_grid%aglo_lat(indxI,  indxJ),&
-                  &                       diag_global_grid%aglo_lon(indxI,  indxJ))
-             points_r8(6) = latlon2xyz_r8(diag_global_grid%aglo_lat(indxI,  indxJ-1),&
-                  &                       diag_global_grid%aglo_lon(indxI,  indxJ-1))
-             points_r8(7) = latlon2xyz_r8(diag_global_grid%aglo_lat(indxI+1,indxJ+1),&
-                  &                       diag_global_grid%aglo_lon(indxI+1,indxJ+1))
-             points_r8(8) = latlon2xyz_r8(diag_global_grid%aglo_lat(indxI+1,indxJ),&
-                  &                       diag_global_grid%aglo_lon(indxI+1,indxJ))
-             points_r8(9) = latlon2xyz_r8(diag_global_grid%aglo_lat(indxI+1,indxJ-1),&
-                  &                       diag_global_grid%aglo_lon(indxI+1,indxJ-1))
+                      EXIT iLoop
+                   END IF
+                END DO jLoop
+             END DO iLoop
 
 
-             ! Calculate the distance squared between the points(:) and the origPt
-             distSqrd_r8 = distanceSqrd_r8(origPt_r8, points_r8)
-
-             SELECT CASE (MINLOC(distSqrd_r8,1))
-             CASE ( 1 )
-                indxI = indxI-1
-                indxJ = indxJ+1
-             CASE ( 2 )
-                indxI = indxI-1
-                indxJ = indxJ
-             CASE ( 3 )
-                indxI = indxI-1
-                indxJ = indxJ-1
-             CASE ( 4 )
-                indxI = indxI
-                indxJ = indxJ+1
-             CASE ( 5 )
-                indxI = indxI
-                indxJ = indxJ
-             CASE ( 6 )
-                indxI = indxI
-                indxJ = indxJ-1
-             CASE ( 7 )
-                indxI = indxI+1
-                indxJ = indxJ+1
-             CASE ( 8 )
-                indxI = indxI+1
-                indxJ = indxJ
-             CASE ( 9 )
-                indxI = indxI+1
-                indxJ = indxJ-1
-             CASE DEFAULT
+             ! Make sure we have indexes in the correct range
+             valid: IF (  (indxI <= 0 .OR. dimI-1 <= indxI) .OR. &
+                  &       (indxJ <= 0 .OR. dimJ-1 <= indxJ) ) THEN
                 indxI = 0
                 indxJ = 0
-             END SELECT
-          END IF valid
+             ELSE ! indxI and indxJ are valid.
+                ! Since we are looking for the closest grid point to the
+                ! (lat,lon) point, we need to check the surrounding
+                ! points.  The indexes for the variable points are as follows
+                !
+                ! 1---4---7
+                ! |   |   |
+                ! 2---5---8
+                ! |   |   |
+                ! 3---6---9
 
-          deallocate(llat_r8, llon_r8, maxCtrDist_r8)
-          deallocate(pntDistances_r8)
-          deallocate(origPt_r8)
-          deallocate(cornerPts_r8)
-          deallocate(points_r8)
-          deallocate(distSqrd_r8)
+                ! Set the 'default' values for points(:) x,y,z to some large
+                ! value.
+                DO i=1, 9
+                   points_r8(i)%x = 1.0e20
+                   points_r8(i)%y = 1.0e20
+                   points_r8(i)%z = 1.0e20
+                END DO
+
+                ! All the points around the i,j indexes
+                points_r8(1) = latlon2xyz_r8(diag_global_grid%aglo_lat(indxI-1,indxJ+1),&
+                     &                       diag_global_grid%aglo_lon(indxI-1,indxJ+1))
+                points_r8(2) = latlon2xyz_r8(diag_global_grid%aglo_lat(indxI-1,indxJ),&
+                     &                       diag_global_grid%aglo_lon(indxI-1,indxJ))
+                points_r8(3) = latlon2xyz_r8(diag_global_grid%aglo_lat(indxI-1,indxJ-1),&
+                     &                       diag_global_grid%aglo_lon(indxI-1,indxJ-1))
+                points_r8(4) = latlon2xyz_r8(diag_global_grid%aglo_lat(indxI,  indxJ+1),&
+                     &                       diag_global_grid%aglo_lon(indxI,  indxJ+1))
+                points_r8(5) = latlon2xyz_r8(diag_global_grid%aglo_lat(indxI,  indxJ),&
+                     &                       diag_global_grid%aglo_lon(indxI,  indxJ))
+                points_r8(6) = latlon2xyz_r8(diag_global_grid%aglo_lat(indxI,  indxJ-1),&
+                     &                       diag_global_grid%aglo_lon(indxI,  indxJ-1))
+                points_r8(7) = latlon2xyz_r8(diag_global_grid%aglo_lat(indxI+1,indxJ+1),&
+                     &                       diag_global_grid%aglo_lon(indxI+1,indxJ+1))
+                points_r8(8) = latlon2xyz_r8(diag_global_grid%aglo_lat(indxI+1,indxJ),&
+                     &                       diag_global_grid%aglo_lon(indxI+1,indxJ))
+                points_r8(9) = latlon2xyz_r8(diag_global_grid%aglo_lat(indxI+1,indxJ-1),&
+                     &                       diag_global_grid%aglo_lon(indxI+1,indxJ-1))
+
+
+                ! Calculate the distance squared between the points(:) and the origPt
+                distSqrd_r8 = distanceSqrd_r8(origPt_r8, points_r8)
+
+                SELECT CASE (MINLOC(distSqrd_r8,1))
+                CASE ( 1 )
+                   indxI = indxI-1
+                   indxJ = indxJ+1
+                CASE ( 2 )
+                   indxI = indxI-1
+                   indxJ = indxJ
+                CASE ( 3 )
+                   indxI = indxI-1
+                   indxJ = indxJ-1
+                CASE ( 4 )
+                   indxI = indxI
+                   indxJ = indxJ+1
+                CASE ( 5 )
+                   indxI = indxI
+                   indxJ = indxJ
+                CASE ( 6 )
+                   indxI = indxI
+                   indxJ = indxJ-1
+                CASE ( 7 )
+                   indxI = indxI+1
+                   indxJ = indxJ+1
+                CASE ( 8 )
+                   indxI = indxI+1
+                   indxJ = indxJ
+                CASE ( 9 )
+                   indxI = indxI+1
+                   indxJ = indxJ-1
+                CASE DEFAULT
+                   indxI = 0
+                   indxJ = 0
+                END SELECT
+             END IF valid
+
+             deallocate(llat_r8, llon_r8, maxCtrDist_r8)
+             deallocate(pntDistances_r8)
+             deallocate(origPt_r8)
+             deallocate(cornerPts_r8)
+             deallocate(points_r8)
+             deallocate(distSqrd_r8)
+          end select
        end select
     end select
 
@@ -1502,218 +1508,224 @@ CONTAINS
     type is (real(r4_kind))
        select type (lon)
        type is (real(r4_kind))
-          allocate(origPt_r4)
-          allocate(points_r4(4))
-          allocate(distSqrd_r4(4))
+          select type (diag_global_grid)
+          type is (diag_global_grid_type_r4)
+             allocate(origPt_r4)
+             allocate(points_r4(4))
+             allocate(distSqrd_r4(4))
 
-          ! find the I index
-          iLoop: DO i=0, dimI-2
-             IF (   diag_global_grid%aglo_lon(i,0) >&
-                  & diag_global_grid%aglo_lon(i+1,0) ) THEN
-                ! We are at the 0 longitudal line
-                IF (   (diag_global_grid%aglo_lon(i,0) <= lon .AND. lon <= 360.) .OR.&
-                     & (0. <= lon .AND. lon < diag_global_grid%aglo_lon(i+1, 0)) ) THEN
+             ! find the I index
+             iLoop: DO i=0, dimI-2
+                IF (   diag_global_grid%aglo_lon(i,0) >&
+                     & diag_global_grid%aglo_lon(i+1,0) ) THEN
+                   ! We are at the 0 longitudal line
+                   IF (   (diag_global_grid%aglo_lon(i,0) <= lon .AND. lon <= 360.) .OR.&
+                        & (0. <= lon .AND. lon < diag_global_grid%aglo_lon(i+1, 0)) ) THEN
+                      indxI = i
+                      EXIT iLoop
+                   END IF
+                ELSEIF ( diag_global_grid%aglo_lon(i,0) <= lon .AND.&
+                     &   lon <= diag_global_grid%aglo_lon(i+1,0) ) THEN
                    indxI = i
                    EXIT iLoop
                 END IF
-             ELSEIF ( diag_global_grid%aglo_lon(i,0) <= lon .AND.&
-                  &   lon <= diag_global_grid%aglo_lon(i+1,0) ) THEN
-                indxI = i
-                EXIT iLoop
-             END IF
-          END DO iLoop
+             END DO iLoop
 
-          ! Find the J index
-          IF ( indxI > 0 ) THEN
-             jLoop: DO j=jstart, jend, nextj
-                IF (   diag_global_grid%aglo_lat(indxI,j) <= lat .AND.&
-                     & lat <= diag_global_grid%aglo_lat(indxI,j+nextj) ) THEN
-                   indxJ = j
-                   EXIT jLoop
+             ! Find the J index
+             IF ( indxI > 0 ) THEN
+                jLoop: DO j=jstart, jend, nextj
+                   IF (   diag_global_grid%aglo_lat(indxI,j) <= lat .AND.&
+                        & lat <= diag_global_grid%aglo_lat(indxI,j+nextj) ) THEN
+                      indxJ = j
+                      EXIT jLoop
+                   END IF
+                END DO jLoop
+             END IF
+
+             ! Make sure we have indexes in the correct range
+             valid: IF ( (indxI <= 0 .OR. dimI-1 < indxI) .OR. &
+                  &      (indxJ <= 0 .OR. dimJ-1 < indxJ) ) THEN
+                indxI = 0
+                indxJ = 0
+             ELSE ! indxI and indxJ are valid.
+                ! Since we are looking for the closest grid point to the
+                ! (lat,lon) point, we need to check the surrounding
+                ! points.  The indexes for the variable points are as follows
+                !
+                ! 1---3
+                ! |   |
+                ! 2---4
+
+                ! The original point
+                origPt_r4 = latlon2xyz_r4(lat,lon)
+
+                ! Set the 'default' values for points(:) x,y,z to some large
+                ! value.
+                DO i=1, 4
+                   points_r4(i)%x = 1.0e20
+                   points_r4(i)%y = 1.0e20
+                   points_r4(i)%z = 1.0e20
+                END DO
+
+                ! The original point
+                origPt_r4 = latlon2xyz_r4(lat,lon)
+
+                points_r4(1) = latlon2xyz_r4(diag_global_grid%aglo_lat(indxI,indxJ),&
+                     &                       diag_global_grid%aglo_lon(indxI,indxJ))
+                points_r4(2) = latlon2xyz_r4(diag_global_grid%aglo_lat(indxI,indxJ+nextj),&
+                     &                       diag_global_grid%aglo_lon(indxI,indxJ+nextj))
+                points_r4(3) = latlon2xyz_r4(diag_global_grid%aglo_lat(indxI+1,indxJ+nextj),&
+                     &                       diag_global_grid%aglo_lon(indxI+1,indxJ+nextj))
+                points_r4(4) = latlon2xyz_r4(diag_global_grid%aglo_lat(indxI+1,indxJ),&
+                     &                       diag_global_grid%aglo_lon(indxI+1,indxJ))
+
+                ! Find the distance between the original point and the four
+                ! grid points
+                distSqrd_r4 = distanceSqrd_r4(origPt_r4, points_r4)
+
+                SELECT CASE (MINLOC(distSqrd_r4,1))
+                CASE ( 1 )
+                   indxI = indxI;
+                   indxJ = indxJ;
+                CASE ( 2 )
+                   indxI = indxI;
+                   indxJ = indxJ+nextj;
+                CASE ( 3 )
+                   indxI = indxI+1;
+                   indxJ = indxJ+nextj;
+                CASE ( 4 )
+                   indxI = indxI+1;
+                   indxJ = indxJ;
+                CASE DEFAULT
+                   indxI = 0;
+                   indxJ = 0;
+                END SELECT
+
+                ! If we are on tile 3 or 4, then the indxI and indxJ are
+                ! reversed due to the transposed grids.
+                IF (   diag_global_grid%tile_number == 4 .OR.&
+                     & diag_global_grid%tile_number == 5 ) THEN
+                   indxI_tmp = indxI
+                   indxI = indxJ
+                   indxJ = indxI_tmp
                 END IF
-             END DO jLoop
-          END IF
+             END IF valid
 
-          ! Make sure we have indexes in the correct range
-          valid: IF ( (indxI <= 0 .OR. dimI-1 < indxI) .OR. &
-               &      (indxJ <= 0 .OR. dimJ-1 < indxJ) ) THEN
-             indxI = 0
-             indxJ = 0
-          ELSE ! indxI and indxJ are valid.
-             ! Since we are looking for the closest grid point to the
-             ! (lat,lon) point, we need to check the surrounding
-             ! points.  The indexes for the variable points are as follows
-             !
-             ! 1---3
-             ! |   |
-             ! 2---4
-
-             ! The original point
-             origPt_r4 = latlon2xyz_r4(lat,lon)
-
-             ! Set the 'default' values for points(:) x,y,z to some large
-             ! value.
-             DO i=1, 4
-                points_r4(i)%x = 1.0e20
-                points_r4(i)%y = 1.0e20
-                points_r4(i)%z = 1.0e20
-             END DO
-
-             ! The original point
-             origPt_r4 = latlon2xyz_r4(lat,lon)
-
-             points_r4(1) = latlon2xyz_r4(diag_global_grid%aglo_lat(indxI,indxJ),&
-                  &                       diag_global_grid%aglo_lon(indxI,indxJ))
-             points_r4(2) = latlon2xyz_r4(diag_global_grid%aglo_lat(indxI,indxJ+nextj),&
-                  &                       diag_global_grid%aglo_lon(indxI,indxJ+nextj))
-             points_r4(3) = latlon2xyz_r4(diag_global_grid%aglo_lat(indxI+1,indxJ+nextj),&
-                  &                       diag_global_grid%aglo_lon(indxI+1,indxJ+nextj))
-             points_r4(4) = latlon2xyz_r4(diag_global_grid%aglo_lat(indxI+1,indxJ),&
-                  &                       diag_global_grid%aglo_lon(indxI+1,indxJ))
-
-             ! Find the distance between the original point and the four
-             ! grid points
-             distSqrd_r4 = distanceSqrd_r4(origPt_r4, points_r4)
-
-             SELECT CASE (MINLOC(distSqrd_r4,1))
-             CASE ( 1 )
-                indxI = indxI;
-                indxJ = indxJ;
-             CASE ( 2 )
-                indxI = indxI;
-                indxJ = indxJ+nextj;
-             CASE ( 3 )
-                indxI = indxI+1;
-                indxJ = indxJ+nextj;
-             CASE ( 4 )
-                indxI = indxI+1;
-                indxJ = indxJ;
-             CASE DEFAULT
-                indxI = 0;
-                indxJ = 0;
-             END SELECT
-
-             ! If we are on tile 3 or 4, then the indxI and indxJ are
-             ! reversed due to the transposed grids.
-             IF (   diag_global_grid%tile_number == 4 .OR.&
-                  & diag_global_grid%tile_number == 5 ) THEN
-                indxI_tmp = indxI
-                indxI = indxJ
-                indxJ = indxI_tmp
-             END IF
-          END IF valid
-
-          deallocate(origPt_r4)
-          deallocate(points_r4(4))
-          deallocate(distSqrd_r4(4))
+             deallocate(origPt_r4)
+             deallocate(points_r4(4))
+             deallocate(distSqrd_r4(4))
+          end select
        end select
     type is (real(r8_kind))
        select type (lon)
        type is (real(r8_kind))
-          allocate(origPt_r8)
-          allocate(points_r8(4))
-          allocate(distSqrd_r8(4))
+          select type (diag_global_grid)
+          type is (diag_global_grid_type_r8)
+             allocate(origPt_r8)
+             allocate(points_r8(4))
+             allocate(distSqrd_r8(4))
 
-          ! find the I index
-          iLoop: DO i=0, dimI-2
-             IF (   diag_global_grid%aglo_lon(i,0) >&
-                  & diag_global_grid%aglo_lon(i+1,0) ) THEN
-                ! We are at the 0 longitudal line
-                IF (   (diag_global_grid%aglo_lon(i,0) <= lon .AND. lon <= 360.) .OR.&
-                     & (0. <= lon .AND. lon < diag_global_grid%aglo_lon(i+1, 0)) ) THEN
+             ! find the I index
+             iLoop: DO i=0, dimI-2
+                IF (   diag_global_grid%aglo_lon(i,0) >&
+                     & diag_global_grid%aglo_lon(i+1,0) ) THEN
+                   ! We are at the 0 longitudal line
+                   IF (   (diag_global_grid%aglo_lon(i,0) <= lon .AND. lon <= 360.) .OR.&
+                        & (0. <= lon .AND. lon < diag_global_grid%aglo_lon(i+1, 0)) ) THEN
+                      indxI = i
+                      EXIT iLoop
+                   END IF
+                ELSEIF ( diag_global_grid%aglo_lon(i,0) <= lon .AND.&
+                     &   lon <= diag_global_grid%aglo_lon(i+1,0) ) THEN
                    indxI = i
                    EXIT iLoop
                 END IF
-             ELSEIF ( diag_global_grid%aglo_lon(i,0) <= lon .AND.&
-                  &   lon <= diag_global_grid%aglo_lon(i+1,0) ) THEN
-                indxI = i
-                EXIT iLoop
-             END IF
-          END DO iLoop
+             END DO iLoop
 
-          ! Find the J index
-          IF ( indxI > 0 ) THEN
-             jLoop: DO j=jstart, jend, nextj
-                IF (   diag_global_grid%aglo_lat(indxI,j) <= lat .AND.&
-                     & lat <= diag_global_grid%aglo_lat(indxI,j+nextj) ) THEN
-                   indxJ = j
-                   EXIT jLoop
+             ! Find the J index
+             IF ( indxI > 0 ) THEN
+                jLoop: DO j=jstart, jend, nextj
+                   IF (   diag_global_grid%aglo_lat(indxI,j) <= lat .AND.&
+                        & lat <= diag_global_grid%aglo_lat(indxI,j+nextj) ) THEN
+                      indxJ = j
+                      EXIT jLoop
+                   END IF
+                END DO jLoop
+             END IF
+
+             ! Make sure we have indexes in the correct range
+             valid: IF ( (indxI <= 0 .OR. dimI-1 < indxI) .OR. &
+                  &      (indxJ <= 0 .OR. dimJ-1 < indxJ) ) THEN
+                indxI = 0
+                indxJ = 0
+             ELSE ! indxI and indxJ are valid.
+                ! Since we are looking for the closest grid point to the
+                ! (lat,lon) point, we need to check the surrounding
+                ! points.  The indexes for the variable points are as follows
+                !
+                ! 1---3
+                ! |   |
+                ! 2---4
+
+                ! The original point
+                origPt_r8 = latlon2xyz_r8(lat,lon)
+
+                ! Set the 'default' values for points(:) x,y,z to some large
+                ! value.
+                DO i=1, 4
+                   points_r8(i)%x = 1.0e20
+                   points_r8(i)%y = 1.0e20
+                   points_r8(i)%z = 1.0e20
+                END DO
+
+                ! The original point
+                origPt_r8 = latlon2xyz_r8(lat,lon)
+
+                points_r8(1) = latlon2xyz_r8(diag_global_grid%aglo_lat(indxI,indxJ),&
+                     &                       diag_global_grid%aglo_lon(indxI,indxJ))
+                points_r8(2) = latlon2xyz_r8(diag_global_grid%aglo_lat(indxI,indxJ+nextj),&
+                     &                       diag_global_grid%aglo_lon(indxI,indxJ+nextj))
+                points_r8(3) = latlon2xyz_r8(diag_global_grid%aglo_lat(indxI+1,indxJ+nextj),&
+                     &                       diag_global_grid%aglo_lon(indxI+1,indxJ+nextj))
+                points_r8(4) = latlon2xyz_r8(diag_global_grid%aglo_lat(indxI+1,indxJ),&
+                     &                       diag_global_grid%aglo_lon(indxI+1,indxJ))
+
+                ! Find the distance between the original point and the four
+                ! grid points
+                distSqrd_r8 = distanceSqrd_r8(origPt_r8, points_r8)
+
+                SELECT CASE (MINLOC(distSqrd_r8,1))
+                CASE ( 1 )
+                   indxI = indxI;
+                   indxJ = indxJ;
+                CASE ( 2 )
+                   indxI = indxI;
+                   indxJ = indxJ+nextj;
+                CASE ( 3 )
+                   indxI = indxI+1;
+                   indxJ = indxJ+nextj;
+                CASE ( 4 )
+                   indxI = indxI+1;
+                   indxJ = indxJ;
+                CASE DEFAULT
+                   indxI = 0;
+                   indxJ = 0;
+                END SELECT
+
+                ! If we are on tile 3 or 4, then the indxI and indxJ are
+                ! reversed due to the transposed grids.
+                IF (   diag_global_grid%tile_number == 4 .OR.&
+                     & diag_global_grid%tile_number == 5 ) THEN
+                   indxI_tmp = indxI
+                   indxI = indxJ
+                   indxJ = indxI_tmp
                 END IF
-             END DO jLoop
-          END IF
+             END IF valid
 
-          ! Make sure we have indexes in the correct range
-          valid: IF ( (indxI <= 0 .OR. dimI-1 < indxI) .OR. &
-               &      (indxJ <= 0 .OR. dimJ-1 < indxJ) ) THEN
-             indxI = 0
-             indxJ = 0
-          ELSE ! indxI and indxJ are valid.
-             ! Since we are looking for the closest grid point to the
-             ! (lat,lon) point, we need to check the surrounding
-             ! points.  The indexes for the variable points are as follows
-             !
-             ! 1---3
-             ! |   |
-             ! 2---4
-
-             ! The original point
-             origPt_r8 = latlon2xyz_r8(lat,lon)
-
-             ! Set the 'default' values for points(:) x,y,z to some large
-             ! value.
-             DO i=1, 4
-                points_r8(i)%x = 1.0e20
-                points_r8(i)%y = 1.0e20
-                points_r8(i)%z = 1.0e20
-             END DO
-
-             ! The original point
-             origPt_r8 = latlon2xyz_r8(lat,lon)
-
-             points_r8(1) = latlon2xyz_r8(diag_global_grid%aglo_lat(indxI,indxJ),&
-                  &                       diag_global_grid%aglo_lon(indxI,indxJ))
-             points_r8(2) = latlon2xyz_r8(diag_global_grid%aglo_lat(indxI,indxJ+nextj),&
-                  &                       diag_global_grid%aglo_lon(indxI,indxJ+nextj))
-             points_r8(3) = latlon2xyz_r8(diag_global_grid%aglo_lat(indxI+1,indxJ+nextj),&
-                  &                       diag_global_grid%aglo_lon(indxI+1,indxJ+nextj))
-             points_r8(4) = latlon2xyz_r8(diag_global_grid%aglo_lat(indxI+1,indxJ),&
-                  &                       diag_global_grid%aglo_lon(indxI+1,indxJ))
-
-             ! Find the distance between the original point and the four
-             ! grid points
-             distSqrd_r8 = distanceSqrd_r8(origPt_r8, points_r8)
-
-             SELECT CASE (MINLOC(distSqrd_r8,1))
-             CASE ( 1 )
-                indxI = indxI;
-                indxJ = indxJ;
-             CASE ( 2 )
-                indxI = indxI;
-                indxJ = indxJ+nextj;
-             CASE ( 3 )
-                indxI = indxI+1;
-                indxJ = indxJ+nextj;
-             CASE ( 4 )
-                indxI = indxI+1;
-                indxJ = indxJ;
-             CASE DEFAULT
-                indxI = 0;
-                indxJ = 0;
-             END SELECT
-
-             ! If we are on tile 3 or 4, then the indxI and indxJ are
-             ! reversed due to the transposed grids.
-             IF (   diag_global_grid%tile_number == 4 .OR.&
-                  & diag_global_grid%tile_number == 5 ) THEN
-                indxI_tmp = indxI
-                indxI = indxJ
-                indxJ = indxI_tmp
-             END IF
-          END IF valid
-
-          deallocate(origPt_r8)
-          deallocate(points_r8(4))
-          deallocate(distSqrd_r8(4))
+             deallocate(origPt_r8)
+             deallocate(points_r8(4))
+             deallocate(distSqrd_r8(4))
+          end select
        end select
     end select
 
