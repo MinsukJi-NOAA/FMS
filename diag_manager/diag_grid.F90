@@ -1776,7 +1776,7 @@ CONTAINS
     ! are in the range [-90,90], but we need to have a radian range
     ! [0,pi], where 0 is at the north pole.  This is the reason for
     ! the subtraction from 90
-    theta = deg2rad_r4(90.-lat)
+    theta = deg2rad_r4(90.0_r4_kind-lat)
     phi = deg2rad_r4(lon)
 
     ! Calculate the x,y,z point
