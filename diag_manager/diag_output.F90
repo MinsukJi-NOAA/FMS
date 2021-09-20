@@ -48,7 +48,8 @@ use,intrinsic :: iso_c_binding, only: c_double,c_float,c_int64_t, &
   USE diag_axis_mod, ONLY: diag_axis_init, get_diag_axis, get_axis_length,&
        & get_axis_global_length, get_domain1d, get_domain2d, get_axis_aux, get_tile_count,&
        & get_domainUG, get_diag_axis_name
-  USE diag_data_mod, ONLY: pack_size, diag_fieldtype, diag_global_att_type, CMOR_MISSING_VALUE, diag_atttype, files
+  USE diag_data_mod, ONLY: pack_size, diag_fieldtype, diag_global_att_type, CMOR_MISSING_VALUE,&
+       &  diag_atttype, diag_atttype_r4, diag_atttype_r8, files
   USE time_manager_mod, ONLY: get_calendar_type, valid_calendar_types
   USE fms_mod, ONLY: error_mesg, mpp_pe, write_version_number, fms_error_handler, FATAL, note
 
@@ -141,7 +142,7 @@ CONTAINS
                                                !! diag_output_mod
     LOGICAL         , INTENT(in)  :: all_scalar_or_1d
     TYPE(domain2d)  , INTENT(in)  :: domain
-    TYPE(diag_atttype), INTENT(in), DIMENSION(:), OPTIONAL :: attributes
+    CLASS(diag_atttype), INTENT(in), DIMENSION(:), OPTIONAL :: attributes
     TYPE(domainUG), INTENT(in)    :: domainU !< The unstructure domain
     type(FmsNetcdfUnstructuredDomainFile_t),intent(inout),target :: fileobjU
     type(FmsNetcdfDomainFile_t),intent(inout),target :: fileobj
@@ -290,7 +291,12 @@ CONTAINS
              call register_global_attribute(fileob, TRIM(attributes(i)%name), attributes(i)%iatt)
           CASE (NF90_FLOAT)
 
-             call register_global_attribute(fileob, TRIM(attributes(i)%name), attributes(i)%fatt)
+             SELECT TYPE (attributes)
+             TYPE IS (diag_atttype_r4)
+                call register_global_attribute(fileob, TRIM(attributes(i)%name), attributes(i)%fatt)
+             TYPE IS (diag_atttype_r8)
+                call register_global_attribute(fileob, TRIM(attributes(i)%name), attributes(i)%fatt)
+             END SELECT
           CASE (NF90_CHAR)
 
              call register_global_attribute(fileob, TRIM(attributes(i)%name), attributes(i)%catt, str_len=len_trim(attributes(i)%catt))
@@ -329,11 +335,13 @@ CONTAINS
     CHARACTER(len=mxchl) :: axis_long_name
     CHARACTER(len=1)     :: axis_cart_name
     INTEGER              :: axis_direction, axis_edges
-    REAL, ALLOCATABLE    :: axis_data(:)
+    REAL(r4_kind), DIMENSION(:), ALLOCATABLE    :: axis_data_r4
+    REAL(r8_kind), DIMENSION(:), ALLOCATABLE    :: axis_data_r8
+    !REAL, ALLOCATABLE    :: axis_data(:)
     INTEGER, ALLOCATABLE :: axis_extent(:), pelist(:)
 integer :: domain_size, axis_length, axis_pos
     INTEGER              :: num_attributes
-    TYPE(diag_atttype), DIMENSION(:), ALLOCATABLE :: attributes
+    CLASS(diag_atttype), DIMENSION(:), ALLOCATABLE :: attributes
     INTEGER              :: calendar, id_axis, id_time_axis
     INTEGER              :: i, j, index, num, length, edges_index
     INTEGER              :: gbegin, gend, gsize, ndivs
@@ -343,7 +351,9 @@ integer :: domain_size, axis_length, axis_pos
     integer(I4_KIND)                          :: io_domain_npes
     integer(I4_KIND),dimension(:),allocatable :: io_pelist
     integer(I4_KIND),dimension(:),allocatable :: unstruct_axis_sizes
-    real,dimension(:),allocatable              :: unstruct_axis_data
+    real(r4_kind),dimension(:),allocatable     :: unstruct_axis_data_r4
+    real(r8_kind),dimension(:),allocatable     :: unstruct_axis_data_r8
+    !real,dimension(:),allocatable              :: unstruct_axis_data
     integer                                    :: id_axis_current
     logical :: is_time_axis_registered
     integer :: istart, iend
