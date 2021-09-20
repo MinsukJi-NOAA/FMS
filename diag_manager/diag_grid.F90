@@ -434,7 +434,7 @@ CONTAINS
 
     IF ( diag_grid_initialized ) THEN
        SELECT TYPE (diag_global_grid)
-       TYPE IS (diag_global_grid_r4)
+       TYPE IS (diag_global_grid_type_r4)
           ! De-allocate grid
           IF ( allocated(diag_global_grid%glo_lat) ) THEN
              DEALLOCATE(diag_global_grid%glo_lat)
@@ -463,7 +463,7 @@ CONTAINS
              CALL error_mesg('diag_grid_mod::diag_grid_end',&
                   &'diag_global_grid%aglo_lon was not allocated.', WARNING)
           END IF
-       TYPE IS (diag_global_grid_r8)
+       TYPE IS (diag_global_grid_type_r8)
           ! De-allocate grid
           IF ( allocated(diag_global_grid%glo_lat) ) THEN
              DEALLOCATE(diag_global_grid%glo_lat)
