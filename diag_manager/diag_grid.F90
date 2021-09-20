@@ -317,6 +317,7 @@ CONTAINS
              type is (real(r8_kind))
                 allocate(diag_global_grid_type_r8::diag_global_grid)
                 select type (diag_global_grid)
+                type is (diag_global_grid_type_r8)
                    ! Get the size of the grids
                    latDim = SHAPE(glo_lat)
                    lonDim = SHAPE(glo_lon)
@@ -394,7 +395,6 @@ CONTAINS
                    diag_global_grid%dimJ = j_dim
                    diag_global_grid%adimI = ai_dim
                    diag_global_grid%adimJ = aj_dim
-                type is (diag_global_grid_type_r8)
                 end select
              end select
           end select
