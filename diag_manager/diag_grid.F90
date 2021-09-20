@@ -1110,13 +1110,13 @@ CONTAINS
   PURE ELEMENTAL REAL(r4_kind) FUNCTION deg2rad_r4(angle)
     REAL(r4_kind), INTENT(in) :: angle !< Scalar or array of angles in degrees.
 
-    deg2rad = DEG_TO_RAD * angle
+    deg2rad_r4 = DEG_TO_RAD * angle
   END FUNCTION deg2rad_r4
 
   PURE ELEMENTAL REAL(r8_kind) FUNCTION deg2rad_r8(angle)
     REAL(r8_kind), INTENT(in) :: angle !< Scalar or array of angles in degrees.
 
-    deg2rad = DEG_TO_RAD * angle
+    deg2rad_r8 = DEG_TO_RAD * angle
   END FUNCTION deg2rad_r8
 
   !> @brief Return the closest index (i,j) to the given (lat,lon) point.
@@ -1491,18 +1491,34 @@ CONTAINS
     dimI = diag_global_grid%adimI
     dimJ = diag_global_grid%adimJ
 
-    ! check to see if the 'fix' for the latitude index is needed
-    IF ( diag_global_grid%aglo_lat(1,1) > &
-         &diag_global_grid%aglo_lat(1,2) ) THEN
-       ! reverse the j search
-       jstart = dimJ-1
-       jend = 1
-       nextj = -1
-    ELSE
-       jstart = 0
-       jend = dimJ-2
-       nextJ = 1
-    END IF
+    SELECT TYPE (diag_global_grid)
+    TYPE IS (diag_global_grid_type_r4)
+       ! check to see if the 'fix' for the latitude index is needed
+       IF ( diag_global_grid%aglo_lat(1,1) > &
+            &diag_global_grid%aglo_lat(1,2) ) THEN
+          ! reverse the j search
+          jstart = dimJ-1
+          jend = 1
+          nextj = -1
+       ELSE
+          jstart = 0
+          jend = dimJ-2
+          nextJ = 1
+       END IF
+    TYPE IS (diag_global_grid_type_r8)
+       ! check to see if the 'fix' for the latitude index is needed
+       IF ( diag_global_grid%aglo_lat(1,1) > &
+            &diag_global_grid%aglo_lat(1,2) ) THEN
+          ! reverse the j search
+          jstart = dimJ-1
+          jend = 1
+          nextj = -1
+       ELSE
+          jstart = 0
+          jend = dimJ-2
+          nextJ = 1
+       END IF
+    END SELECT
 
     select type (lat)
     type is (real(r4_kind))
@@ -1612,8 +1628,8 @@ CONTAINS
              END IF valid
 
              deallocate(origPt_r4)
-             deallocate(points_r4(4))
-             deallocate(distSqrd_r4(4))
+             deallocate(points_r4)
+             deallocate(distSqrd_r4)
           end select
        end select
     type is (real(r8_kind))
@@ -1723,8 +1739,8 @@ CONTAINS
              END IF valid
 
              deallocate(origPt_r8)
-             deallocate(points_r8(4))
-             deallocate(distSqrd_r8(4))
+             deallocate(points_r8)
+             deallocate(distSqrd_r8)
           end select
        end select
     end select
@@ -1760,13 +1776,13 @@ CONTAINS
     ! are in the range [-90,90], but we need to have a radian range
     ! [0,pi], where 0 is at the north pole.  This is the reason for
     ! the subtraction from 90
-    theta = deg2rad(90.-lat)
-    phi = deg2rad(lon)
+    theta = deg2rad_r4(90.-lat)
+    phi = deg2rad_r4(lon)
 
     ! Calculate the x,y,z point
-    latlon2xyz%x = RADIUS * SIN(theta) * COS(phi)
-    latlon2xyz%y = RADIUS * SIN(theta) * SIN(phi)
-    latlon2xyz%z = RADIUS * COS(theta)
+    latlon2xyz_r4%x = RADIUS * SIN(theta) * COS(phi)
+    latlon2xyz_r4%y = RADIUS * SIN(theta) * SIN(phi)
+    latlon2xyz_r4%z = RADIUS * COS(theta)
   END FUNCTION latlon2xyz_r4
 
   PURE ELEMENTAL TYPE(point_r8) FUNCTION latlon2xyz_r8(lat, lon)
@@ -1787,13 +1803,13 @@ CONTAINS
     ! are in the range [-90,90], but we need to have a radian range
     ! [0,pi], where 0 is at the north pole.  This is the reason for
     ! the subtraction from 90
-    theta = deg2rad(90.-lat)
-    phi = deg2rad(lon)
+    theta = deg2rad_r8(90.-lat)
+    phi = deg2rad_r8(lon)
 
     ! Calculate the x,y,z point
-    latlon2xyz%x = RADIUS * SIN(theta) * COS(phi)
-    latlon2xyz%y = RADIUS * SIN(theta) * SIN(phi)
-    latlon2xyz%z = RADIUS * COS(theta)
+    latlon2xyz_r8%x = RADIUS * SIN(theta) * COS(phi)
+    latlon2xyz_r8%y = RADIUS * SIN(theta) * SIN(phi)
+    latlon2xyz_r8%z = RADIUS * COS(theta)
   END FUNCTION latlon2xyz_r8
 
   !> @brief Find the distance between two points in the Cartesian
@@ -1808,17 +1824,17 @@ CONTAINS
   PURE ELEMENTAL REAL(r4_kind) FUNCTION distanceSqrd_r4(pt1, pt2)
     TYPE(point_r4), INTENT(in) :: pt1, pt2
 
-    distanceSqrd = (pt1%x-pt2%x)**2 +&
-         &         (pt1%y-pt2%y)**2 +&
-         &         (pt1%z-pt2%z)**2
+    distanceSqrd_r4 = (pt1%x-pt2%x)**2 +&
+         &            (pt1%y-pt2%y)**2 +&
+         &            (pt1%z-pt2%z)**2
   END FUNCTION distanceSqrd_r4
 
   PURE ELEMENTAL REAL(r8_kind) FUNCTION distanceSqrd_r8(pt1, pt2)
     TYPE(point_r8), INTENT(in) :: pt1, pt2
 
-    distanceSqrd = (pt1%x-pt2%x)**2 +&
-         &         (pt1%y-pt2%y)**2 +&
-         &         (pt1%z-pt2%z)**2
+    distanceSqrd_r8 = (pt1%x-pt2%x)**2 +&
+         &            (pt1%y-pt2%y)**2 +&
+         &            (pt1%z-pt2%z)**2
   END FUNCTION distanceSqrd_r8
 
   !> @brief Find the distance, along the geodesic, between two points.
@@ -1833,12 +1849,12 @@ CONTAINS
     REAL(r4_kind) :: deltaLambda !< Difference in longitude angles, in radians.
     REAL(r4_kind) :: deltaTheta !< Difference in latitude angels, in radians.
 
-    theta1 = deg2rad(lat1)
-    theta2 = deg2rad(lat2)
-    deltaLambda = deg2rad(lon2-lon1)
-    deltaTheta = deg2rad(lat2-lat1)
+    theta1 = deg2rad_r4(lat1)
+    theta2 = deg2rad_r4(lat2)
+    deltaLambda = deg2rad_r4(lon2-lon1)
+    deltaTheta = deg2rad_r4(lat2-lat1)
 
-    gCirDistance = RADIUS * 2. * ASIN(SQRT((SIN(deltaTheta/2.))**2 + COS(theta1)*COS(theta2)*(SIN(deltaLambda/2.))**2))
+    gCirDistance_r4 = RADIUS * 2. * ASIN(SQRT((SIN(deltaTheta/2.))**2 + COS(theta1)*COS(theta2)*(SIN(deltaLambda/2.))**2))
   END FUNCTION gCirDistance_r4
 
   PURE ELEMENTAL REAL(r8_kind) FUNCTION gCirDistance_r8(lat1, lon1, lat2, lon2)
@@ -1848,12 +1864,12 @@ CONTAINS
     REAL(r8_kind) :: deltaLambda !< Difference in longitude angles, in radians.
     REAL(r8_kind) :: deltaTheta !< Difference in latitude angels, in radians.
 
-    theta1 = deg2rad(lat1)
-    theta2 = deg2rad(lat2)
-    deltaLambda = deg2rad(lon2-lon1)
-    deltaTheta = deg2rad(lat2-lat1)
+    theta1 = deg2rad_r8(lat1)
+    theta2 = deg2rad_r8(lat2)
+    deltaLambda = deg2rad_r8(lon2-lon1)
+    deltaTheta = deg2rad_r8(lat2-lat1)
 
-    gCirDistance = RADIUS * 2. * ASIN(SQRT((SIN(deltaTheta/2.))**2 + COS(theta1)*COS(theta2)*(SIN(deltaLambda/2.))**2))
+    gCirDistance_r8 = RADIUS * 2. * ASIN(SQRT((SIN(deltaTheta/2.))**2 + COS(theta1)*COS(theta2)*(SIN(deltaLambda/2.))**2))
   END FUNCTION gCirDistance_r8
 
   !> @brief Find the i,j indices and distance of the a-grid point nearest to
@@ -1887,53 +1903,56 @@ CONTAINS
        type is (real(r4_kind))
           select type (minimum_distance)
           type is (real(r4_kind))
-             allocate(llat_r4, llon_r4, dist_r4)
+             select type (diag_global_grid)
+             type is (diag_global_grid_type_r4)
+                allocate(llat_r4, llon_r4, dist_r4)
 
-             !Since the poles have an non-unique longitude value, make a small
-             !correction if looking for one of the poles.
-             IF (lat .EQ. 90.0) THEN
-                llat_r4 = lat - .1
-             ELSEIF (lat .EQ. -90.0) THEN
-                llat_r4 = lat + .1
-             ELSE
-                llat_r4 = lat
-             END IF
-             llon_r4 = lon
+                !Since the poles have an non-unique longitude value, make a small
+                !correction if looking for one of the poles.
+                IF (lat .EQ. 90.0) THEN
+                   llat_r4 = lat - .1
+                ELSEIF (lat .EQ. -90.0) THEN
+                   llat_r4 = lat + .1
+                ELSE
+                   llat_r4 = lat
+                END IF
+                llon_r4 = lon
 
-             !Loop through non-halo points.  Calculate the distance
-             !between each a-grid point and the point that we
-             !are seeking.  Store the minimum distance and its
-             !corresponding i,j indices.
-             minI = 0
-             minJ = 0
-             minimum_distance = 2.0*RADIUS*3.141592653
-             DO j = 1,diag_global_grid%adimJ-2
-                 DO i = 1,diag_global_grid%adimI-2
-                     dist_r4 = gCirDistance_r4(llat_r4, &
-                                         llon_r4, &
-                                         diag_global_grid%aglo_lat(i,j), &
-                                         diag_global_grid%aglo_lon(i,j))
-                     IF (dist_r4 .LT. minimum_distance) THEN
+                !Loop through non-halo points.  Calculate the distance
+                !between each a-grid point and the point that we
+                !are seeking.  Store the minimum distance and its
+                !corresponding i,j indices.
+                minI = 0
+                minJ = 0
+                minimum_distance = 2.0*RADIUS*3.141592653
+                DO j = 1,diag_global_grid%adimJ-2
+                    DO i = 1,diag_global_grid%adimI-2
+                        dist_r4 = gCirDistance_r4(llat_r4, &
+                                            llon_r4, &
+                                            diag_global_grid%aglo_lat(i,j), &
+                                            diag_global_grid%aglo_lon(i,j))
+                        IF (dist_r4 .LT. minimum_distance) THEN
 
-                         !These number shouldn't be hardcoded, but they have to
-                         !match the ones in diag_grid_init.
-                         if (diag_global_grid%tile_number .eq. 4 .or. &
-                                 diag_global_grid%tile_number .eq. 5) then
+                            !These number shouldn't be hardcoded, but they have to
+                            !match the ones in diag_grid_init.
+                            if (diag_global_grid%tile_number .eq. 4 .or. &
+                                    diag_global_grid%tile_number .eq. 5) then
 
-                             !Because of transpose in diag_grid_init.
-                             minI = j
-                             minJ = i
+                                !Because of transpose in diag_grid_init.
+                                minI = j
+                                minJ = i
 
-                         else
-                             minI = i
-                             minJ = j
-                         endif
-                         minimum_distance = dist_r4
-                     ENDIF
-                 ENDDO
-             ENDDO
+                            else
+                                minI = i
+                                minJ = j
+                            endif
+                            minimum_distance = dist_r4
+                        ENDIF
+                    ENDDO
+                ENDDO
 
-             deallocate(llat_r4, llon_r4, dist_r4)
+                deallocate(llat_r4, llon_r4, dist_r4)
+             end select
           end select
        end select
     type is (real(r8_kind))
@@ -1941,53 +1960,56 @@ CONTAINS
        type is (real(r8_kind))
           select type (minimum_distance)
           type is (real(r8_kind))
-             allocate(llat_r8, llon_r8, dist_r8)
+             select type (diag_global_grid)
+             type is (diag_global_grid_type_r8)
+                allocate(llat_r8, llon_r8, dist_r8)
 
-             !Since the poles have an non-unique longitude value, make a small
-             !correction if looking for one of the poles.
-             IF (lat .EQ. 90.0) THEN
-                llat_r8 = lat - .1
-             ELSEIF (lat .EQ. -90.0) THEN
-                llat_r8 = lat + .1
-             ELSE
-                llat_r8 = lat
-             END IF
-             llon_r8 = lon
+                !Since the poles have an non-unique longitude value, make a small
+                !correction if looking for one of the poles.
+                IF (lat .EQ. 90.0) THEN
+                   llat_r8 = lat - .1
+                ELSEIF (lat .EQ. -90.0) THEN
+                   llat_r8 = lat + .1
+                ELSE
+                   llat_r8 = lat
+                END IF
+                llon_r8 = lon
 
-             !Loop through non-halo points.  Calculate the distance
-             !between each a-grid point and the point that we
-             !are seeking.  Store the minimum distance and its
-             !corresponding i,j indices.
-             minI = 0
-             minJ = 0
-             minimum_distance = 2.0*RADIUS*3.141592653
-             DO j = 1,diag_global_grid%adimJ-2
-                 DO i = 1,diag_global_grid%adimI-2
-                     dist_r8 = gCirDistance_r8(llat_r8, &
-                                         llon_r8, &
-                                         diag_global_grid%aglo_lat(i,j), &
-                                         diag_global_grid%aglo_lon(i,j))
-                     IF (dist_r8 .LT. minimum_distance) THEN
+                !Loop through non-halo points.  Calculate the distance
+                !between each a-grid point and the point that we
+                !are seeking.  Store the minimum distance and its
+                !corresponding i,j indices.
+                minI = 0
+                minJ = 0
+                minimum_distance = 2.0*RADIUS*3.141592653
+                DO j = 1,diag_global_grid%adimJ-2
+                    DO i = 1,diag_global_grid%adimI-2
+                        dist_r8 = gCirDistance_r8(llat_r8, &
+                                            llon_r8, &
+                                            diag_global_grid%aglo_lat(i,j), &
+                                            diag_global_grid%aglo_lon(i,j))
+                        IF (dist_r8 .LT. minimum_distance) THEN
 
-                         !These number shouldn't be hardcoded, but they have to
-                         !match the ones in diag_grid_init.
-                         if (diag_global_grid%tile_number .eq. 4 .or. &
-                                 diag_global_grid%tile_number .eq. 5) then
+                            !These number shouldn't be hardcoded, but they have to
+                            !match the ones in diag_grid_init.
+                            if (diag_global_grid%tile_number .eq. 4 .or. &
+                                    diag_global_grid%tile_number .eq. 5) then
 
-                             !Because of transpose in diag_grid_init.
-                             minI = j
-                             minJ = i
+                                !Because of transpose in diag_grid_init.
+                                minI = j
+                                minJ = i
 
-                         else
-                             minI = i
-                             minJ = j
-                         endif
-                         minimum_distance = dist_r8
-                     ENDIF
-                 ENDDO
-             ENDDO
+                            else
+                                minI = i
+                                minJ = j
+                            endif
+                            minimum_distance = dist_r8
+                        ENDIF
+                    ENDDO
+                ENDDO
 
-             deallocate(llat_r8, llon_r8, dist_r8)
+                deallocate(llat_r8, llon_r8, dist_r8)
+             end select
           end select
        end select
     end select
