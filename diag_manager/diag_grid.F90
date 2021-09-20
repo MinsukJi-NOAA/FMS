@@ -433,34 +433,66 @@ CONTAINS
   SUBROUTINE diag_grid_end()
 
     IF ( diag_grid_initialized ) THEN
-       ! De-allocate grid
-       IF ( allocated(diag_global_grid%glo_lat) ) THEN
-          DEALLOCATE(diag_global_grid%glo_lat)
-       ELSE IF ( mpp_pe() == mpp_root_pe() ) THEN
-          CALL error_mesg('diag_grid_mod::diag_grid_end',&
-               &'diag_global_grid%glo_lat was not allocated.', WARNING)
-       END IF
+       SELECT TYPE (diag_global_grid)
+       TYPE IS (diag_global_grid_r4)
+          ! De-allocate grid
+          IF ( allocated(diag_global_grid%glo_lat) ) THEN
+             DEALLOCATE(diag_global_grid%glo_lat)
+          ELSE IF ( mpp_pe() == mpp_root_pe() ) THEN
+             CALL error_mesg('diag_grid_mod::diag_grid_end',&
+                  &'diag_global_grid%glo_lat was not allocated.', WARNING)
+          END IF
 
-       IF ( allocated(diag_global_grid%glo_lon) ) THEN
-          DEALLOCATE(diag_global_grid%glo_lon)
-       ELSE IF ( mpp_pe() == mpp_root_pe() ) THEN
-          CALL error_mesg('diag_grid_mod::diag_grid_end',&
-               &'diag_global_grid%glo_lon was not allocated.', WARNING)
-       END IF
-       ! De-allocate a-grid
-       IF ( allocated(diag_global_grid%aglo_lat) ) THEN
-          DEALLOCATE(diag_global_grid%aglo_lat)
-       ELSE IF ( mpp_pe() == mpp_root_pe() ) THEN
-          CALL error_mesg('diag_grid_mod::diag_grid_end',&
-               &'diag_global_grid%aglo_lat was not allocated.', WARNING)
-       END IF
+          IF ( allocated(diag_global_grid%glo_lon) ) THEN
+             DEALLOCATE(diag_global_grid%glo_lon)
+          ELSE IF ( mpp_pe() == mpp_root_pe() ) THEN
+             CALL error_mesg('diag_grid_mod::diag_grid_end',&
+                  &'diag_global_grid%glo_lon was not allocated.', WARNING)
+          END IF
+          ! De-allocate a-grid
+          IF ( allocated(diag_global_grid%aglo_lat) ) THEN
+             DEALLOCATE(diag_global_grid%aglo_lat)
+          ELSE IF ( mpp_pe() == mpp_root_pe() ) THEN
+             CALL error_mesg('diag_grid_mod::diag_grid_end',&
+                  &'diag_global_grid%aglo_lat was not allocated.', WARNING)
+          END IF
 
-       IF ( allocated(diag_global_grid%aglo_lon) ) THEN
-          DEALLOCATE(diag_global_grid%aglo_lon)
-       ELSE IF ( mpp_pe() == mpp_root_pe() ) THEN
-          CALL error_mesg('diag_grid_mod::diag_grid_end',&
-               &'diag_global_grid%aglo_lon was not allocated.', WARNING)
-       END IF
+          IF ( allocated(diag_global_grid%aglo_lon) ) THEN
+             DEALLOCATE(diag_global_grid%aglo_lon)
+          ELSE IF ( mpp_pe() == mpp_root_pe() ) THEN
+             CALL error_mesg('diag_grid_mod::diag_grid_end',&
+                  &'diag_global_grid%aglo_lon was not allocated.', WARNING)
+          END IF
+       TYPE IS (diag_global_grid_r8)
+          ! De-allocate grid
+          IF ( allocated(diag_global_grid%glo_lat) ) THEN
+             DEALLOCATE(diag_global_grid%glo_lat)
+          ELSE IF ( mpp_pe() == mpp_root_pe() ) THEN
+             CALL error_mesg('diag_grid_mod::diag_grid_end',&
+                  &'diag_global_grid%glo_lat was not allocated.', WARNING)
+          END IF
+
+          IF ( allocated(diag_global_grid%glo_lon) ) THEN
+             DEALLOCATE(diag_global_grid%glo_lon)
+          ELSE IF ( mpp_pe() == mpp_root_pe() ) THEN
+             CALL error_mesg('diag_grid_mod::diag_grid_end',&
+                  &'diag_global_grid%glo_lon was not allocated.', WARNING)
+          END IF
+          ! De-allocate a-grid
+          IF ( allocated(diag_global_grid%aglo_lat) ) THEN
+             DEALLOCATE(diag_global_grid%aglo_lat)
+          ELSE IF ( mpp_pe() == mpp_root_pe() ) THEN
+             CALL error_mesg('diag_grid_mod::diag_grid_end',&
+                  &'diag_global_grid%aglo_lat was not allocated.', WARNING)
+          END IF
+
+          IF ( allocated(diag_global_grid%aglo_lon) ) THEN
+             DEALLOCATE(diag_global_grid%aglo_lon)
+          ELSE IF ( mpp_pe() == mpp_root_pe() ) THEN
+             CALL error_mesg('diag_grid_mod::diag_grid_end',&
+                  &'diag_global_grid%aglo_lon was not allocated.', WARNING)
+          END IF
+       END SELECT
 
        IF ( allocated(diag_global_grid) ) THEN
           DEALLOCATE(diag_global_grid)
