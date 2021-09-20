@@ -42,7 +42,7 @@ use platform_mod
        & fms_error_handler, FATAL, NOTE
   USE diag_data_mod, ONLY: diag_axis_type, diag_axis_type_r4, diag_axis_type_r8, max_subaxes, max_axes,&
        & max_num_axis_sets, max_axis_attributes, debug_diag_manager,&
-       & first_send_data_call, diag_atttype
+       & first_send_data_call, diag_atttype, diag_atttype_r4, diag_atttype_r8
 #ifdef use_netCDF
   USE netcdf, ONLY: NF90_INT, NF90_FLOAT, NF90_CHAR
 #endif
@@ -590,21 +590,21 @@ CONTAINS
 
     SELECT TYPE (Axes)
     TYPE IS (diag_axis_type_r4)
-       sa_search: DO i = 1, num_subaxes(axis)
+       sa_search_r4: DO i = 1, num_subaxes(axis)
           IF ( start_indx == Axes(axis)%start(i) .AND. end_indx == Axes(axis)%end(i) ) THEN
              IF ( hasDomain ) THEN
                 CALL mpp_get_compute_domain(Axes(axis)%subaxis_domain2(i), ad_xbegin, ad_xend, ad_ybegin, ad_yend)
                 IF ( .NOT.((xbegin == ad_xbegin .AND. xend == ad_xend) .AND.&
                      & (ybegin == ad_ybegin .AND. yend == ad_yend)) ) THEN
-                   CYCLE sa_search
+                   CYCLE sa_search_r4
                 END IF
              END IF
              nsub_axis = i
              subaxis_set = .TRUE.    !subaxis already exists
              name = TRIM(Axes(axis)%subaxis_name(nsub_axis))
-             EXIT sa_search
+             EXIT sa_search_r4
           END IF
-       END DO sa_search
+       END DO sa_search_r4
 
        IF ( nsub_axis == 0 ) THEN  ! create new subaxis
           num_subaxes(axis) = num_subaxes(axis) + 1
@@ -649,21 +649,21 @@ CONTAINS
           END SELECT
        END IF
     TYPE IS (diag_axis_type_r8)
-       sa_search: DO i = 1, num_subaxes(axis)
+       sa_search_r8: DO i = 1, num_subaxes(axis)
           IF ( start_indx == Axes(axis)%start(i) .AND. end_indx == Axes(axis)%end(i) ) THEN
              IF ( hasDomain ) THEN
                 CALL mpp_get_compute_domain(Axes(axis)%subaxis_domain2(i), ad_xbegin, ad_xend, ad_ybegin, ad_yend)
                 IF ( .NOT.((xbegin == ad_xbegin .AND. xend == ad_xend) .AND.&
                      & (ybegin == ad_ybegin .AND. yend == ad_yend)) ) THEN
-                   CYCLE sa_search
+                   CYCLE sa_search_r8
                 END IF
              END IF
              nsub_axis = i
              subaxis_set = .TRUE.    !subaxis already exists
              name = TRIM(Axes(axis)%subaxis_name(nsub_axis))
-             EXIT sa_search
+             EXIT sa_search_r8
           END IF
-       END DO sa_search
+       END DO sa_search_r8
 
        IF ( nsub_axis == 0 ) THEN  ! create new subaxis
           num_subaxes(axis) = num_subaxes(axis) + 1
