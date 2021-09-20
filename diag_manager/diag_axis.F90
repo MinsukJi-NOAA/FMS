@@ -94,7 +94,8 @@ use platform_mod
      MODULE PROCEDURE diag_axis_add_attribute_scalar_r
      MODULE PROCEDURE diag_axis_add_attribute_scalar_i
      MODULE PROCEDURE diag_axis_add_attribute_scalar_c
-     MODULE PROCEDURE diag_axis_add_attribute_r1d
+     MODULE PROCEDURE diag_axis_add_attribute_r1d_r4
+     MODULE PROCEDURE diag_axis_add_attribute_r1d_r8
      MODULE PROCEDURE diag_axis_add_attribute_i1d
   END INTERFACE diag_axis_add_attribute
 
@@ -1647,9 +1648,9 @@ CONTAINS
 
     SELECT TYPE (att_value)
     TYPE IS (real(r4_kind))
-      CALL diag_axis_add_attribute_r1d(diag_axis_id, att_name, (/ att_value /))
+      CALL diag_axis_add_attribute_r1d_r4(diag_axis_id, att_name, (/ att_value /))
     TYPE IS (real(r8_kind))
-      CALL diag_axis_add_attribute_r1d(diag_axis_id, att_name, (/ att_value /))
+      CALL diag_axis_add_attribute_r1d_r8(diag_axis_id, att_name, (/ att_value /))
     END SELECT
   END SUBROUTINE diag_axis_add_attribute_scalar_r
 
@@ -1669,16 +1670,27 @@ CONTAINS
     CALL diag_axis_attribute_init(diag_axis_id, att_name, NF90_CHAR, cval=att_value)
   END SUBROUTINE diag_axis_add_attribute_scalar_c
 
-  SUBROUTINE diag_axis_add_attribute_r1d(diag_axis_id, att_name, att_value)
+  SUBROUTINE diag_axis_add_attribute_r1d_r4(diag_axis_id, att_name, att_value)
     INTEGER, INTENT(in) :: diag_axis_id
     CHARACTER(len=*), INTENT(in) :: att_name
-    CLASS(*), DIMENSION(:), INTENT(in) :: att_value
+    REAL(r4_kind), DIMENSION(:), INTENT(in) :: att_value
 
     INTEGER :: num_attributes, len
     CHARACTER(len=512) :: err_msg
 
     CALL diag_axis_attribute_init(diag_axis_id, att_name, NF90_FLOAT, rval=att_value)
-  END SUBROUTINE diag_axis_add_attribute_r1d
+  END SUBROUTINE diag_axis_add_attribute_r1d_r4
+
+  SUBROUTINE diag_axis_add_attribute_r1d_r8(diag_axis_id, att_name, att_value)
+    INTEGER, INTENT(in) :: diag_axis_id
+    CHARACTER(len=*), INTENT(in) :: att_name
+    REAL(r8_kind), DIMENSION(:), INTENT(in) :: att_value
+
+    INTEGER :: num_attributes, len
+    CHARACTER(len=512) :: err_msg
+
+    CALL diag_axis_attribute_init(diag_axis_id, att_name, NF90_FLOAT, rval=att_value)
+  END SUBROUTINE diag_axis_add_attribute_r1d_r8
 
   SUBROUTINE diag_axis_add_attribute_i1d(diag_axis_id, att_name, att_value)
     INTEGER, INTENT(in) :: diag_axis_id
