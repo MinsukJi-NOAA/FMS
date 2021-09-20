@@ -91,7 +91,8 @@ use platform_mod
   !! @code{.F90} call diag_axis_add_attribute(diag_axis_id, att_name, att_value) @endcode
   !> @ingroup diag_axis_mod
   INTERFACE diag_axis_add_attribute
-     MODULE PROCEDURE diag_axis_add_attribute_scalar_r
+     MODULE PROCEDURE diag_axis_add_attribute_scalar_r4
+     MODULE PROCEDURE diag_axis_add_attribute_scalar_r8
      MODULE PROCEDURE diag_axis_add_attribute_scalar_i
      MODULE PROCEDURE diag_axis_add_attribute_scalar_c
      MODULE PROCEDURE diag_axis_add_attribute_r1d_r4
@@ -1641,18 +1642,21 @@ CONTAINS
     END IF
   END SUBROUTINE diag_axis_attribute_init
 
-  SUBROUTINE diag_axis_add_attribute_scalar_r(diag_axis_id, att_name, att_value)
+  SUBROUTINE diag_axis_add_attribute_scalar_r4(diag_axis_id, att_name, att_value)
     INTEGER, INTENT(in) :: diag_axis_id
     CHARACTER(len=*), INTENT(in) :: att_name
-    CLASS(*), INTENT(in) :: att_value
+    REAL(r4_kind), INTENT(in) :: att_value
 
-    SELECT TYPE (att_value)
-    TYPE IS (real(r4_kind))
-      CALL diag_axis_add_attribute_r1d_r4(diag_axis_id, att_name, (/ att_value /))
-    TYPE IS (real(r8_kind))
-      CALL diag_axis_add_attribute_r1d_r8(diag_axis_id, att_name, (/ att_value /))
-    END SELECT
-  END SUBROUTINE diag_axis_add_attribute_scalar_r
+    CALL diag_axis_add_attribute_r1d_r4(diag_axis_id, att_name, (/ att_value /))
+  END SUBROUTINE diag_axis_add_attribute_scalar_r4
+
+  SUBROUTINE diag_axis_add_attribute_scalar_r8(diag_axis_id, att_name, att_value)
+    INTEGER, INTENT(in) :: diag_axis_id
+    CHARACTER(len=*), INTENT(in) :: att_name
+    REAL(r8_kind), INTENT(in) :: att_value
+
+    CALL diag_axis_add_attribute_r1d_r8(diag_axis_id, att_name, (/ att_value /))
+  END SUBROUTINE diag_axis_add_attribute_scalar_r8
 
   SUBROUTINE diag_axis_add_attribute_scalar_i(diag_axis_id, att_name, att_value)
     INTEGER, INTENT(in) :: diag_axis_id
