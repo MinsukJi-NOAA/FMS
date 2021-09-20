@@ -335,9 +335,9 @@ CONTAINS
     CHARACTER(len=mxchl) :: axis_long_name
     CHARACTER(len=1)     :: axis_cart_name
     INTEGER              :: axis_direction, axis_edges
-    REAL(r4_kind), DIMENSION(:), ALLOCATABLE    :: axis_data_r4
-    REAL(r8_kind), DIMENSION(:), ALLOCATABLE    :: axis_data_r8
-    !REAL, ALLOCATABLE    :: axis_data(:)
+    !REAL(r4_kind), DIMENSION(:), ALLOCATABLE    :: axis_data_r4
+    !REAL(r8_kind), DIMENSION(:), ALLOCATABLE    :: axis_data_r8
+    REAL, ALLOCATABLE    :: axis_data(:)
     INTEGER, ALLOCATABLE :: axis_extent(:), pelist(:)
 integer :: domain_size, axis_length, axis_pos
     INTEGER              :: num_attributes
@@ -351,9 +351,9 @@ integer :: domain_size, axis_length, axis_pos
     integer(I4_KIND)                          :: io_domain_npes
     integer(I4_KIND),dimension(:),allocatable :: io_pelist
     integer(I4_KIND),dimension(:),allocatable :: unstruct_axis_sizes
-    real(r4_kind),dimension(:),allocatable     :: unstruct_axis_data_r4
-    real(r8_kind),dimension(:),allocatable     :: unstruct_axis_data_r8
-    !real,dimension(:),allocatable              :: unstruct_axis_data
+    !real(r4_kind),dimension(:),allocatable     :: unstruct_axis_data_r4
+    !real(r8_kind),dimension(:),allocatable     :: unstruct_axis_data_r8
+    real,dimension(:),allocatable              :: unstruct_axis_data
     integer                                    :: id_axis_current
     logical :: is_time_axis_registered
     integer :: istart, iend
