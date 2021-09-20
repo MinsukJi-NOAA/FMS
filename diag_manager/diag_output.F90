@@ -671,14 +671,26 @@ integer :: domain_size, axis_length, axis_pos
 
        ! Deallocate attributes
        IF ( ALLOCATED(attributes) ) THEN
-          DO j=1, num_attributes
-             IF ( allocated(attributes(j)%fatt ) ) THEN
-                DEALLOCATE(attributes(j)%fatt)
-             END IF
-             IF ( allocated(attributes(j)%iatt ) ) THEN
-                DEALLOCATE(attributes(j)%iatt)
-             END IF
-          END DO
+          SELECT TYPE (attributes)
+          TYPE IS (diag_atttype_r4)
+             DO j=1, num_attributes
+                IF ( allocated(attributes(j)%fatt ) ) THEN
+                   DEALLOCATE(attributes(j)%fatt)
+                END IF
+                IF ( allocated(attributes(j)%iatt ) ) THEN
+                   DEALLOCATE(attributes(j)%iatt)
+                END IF
+             END DO
+          TYPE IS (diag_atttype_r8)
+             DO j=1, num_attributes
+                IF ( allocated(attributes(j)%fatt ) ) THEN
+                   DEALLOCATE(attributes(j)%fatt)
+                END IF
+                IF ( allocated(attributes(j)%iatt ) ) THEN
+                   DEALLOCATE(attributes(j)%iatt)
+                END IF
+             END DO
+          END SELECT
           DEALLOCATE(attributes)
        END IF
 
