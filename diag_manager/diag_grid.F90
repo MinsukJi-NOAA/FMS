@@ -643,42 +643,46 @@ CONTAINS
        IF ( istat .NE. 0 )&
             & CALL error_mesg('diag_grid_mod::get_local_indexes',&
             &'Cannot allocate longitude delta array', FATAL)
-       DO j=1, dimJ
-          DO i=1, dimI
-             count = 0
-             dists_lon = 0.
-             dists_lat = 0.
-             IF ( i < dimI ) THEN
-                dists_lon(1) = ABS(diag_global_grid%glo_lon(i+1,j) - diag_global_grid%glo_lon(i,j))
-                dists_lat(1) = ABS(diag_global_grid%glo_lat(i+1,j) - diag_global_grid%glo_lat(i,j))
-                count = count+1
-             END IF
-             IF ( j < dimJ ) THEN
-                dists_lon(2) = ABS(diag_global_grid%glo_lon(i,j+1) - diag_global_grid%glo_lon(i,j))
-                dists_lat(2) = ABS(diag_global_grid%glo_lat(i,j+1) - diag_global_grid%glo_lat(i,j))
-                count = count+1
-             END IF
-             IF ( i > 1 ) THEN
-                dists_lon(3) = ABS(diag_global_grid%glo_lon(i,j) - diag_global_grid%glo_lon(i-1,j))
-                dists_lat(3) = ABS(diag_global_grid%glo_lat(i,j) - diag_global_grid%glo_lat(i-1,j))
-                count = count+1
-             END IF
-             IF ( j > 1 ) THEN
-                dists_lon(4) = ABS(diag_global_grid%glo_lon(i,j) - diag_global_grid%glo_lon(i,j-1))
-                dists_lat(4) = ABS(diag_global_grid%glo_lat(i,j) - diag_global_grid%glo_lat(i,j-1))
-                count = count+1
-             END IF
 
-             ! Fix wrap around problem
-             DO k=1, 4
-                IF ( dists_lon(k) > 180.0 ) THEN
-                   dists_lon(k) = 360.0 - dists_lon(k)
+       SELECT TYPE (diag_global_grid)
+       TYPE IS (diag_global_grid_type_r4)
+          DO j=1, dimJ
+             DO i=1, dimI
+                count = 0
+                dists_lon = 0.
+                dists_lat = 0.
+                IF ( i < dimI ) THEN
+                   dists_lon(1) = ABS(diag_global_grid%glo_lon(i+1,j) - diag_global_grid%glo_lon(i,j))
+                   dists_lat(1) = ABS(diag_global_grid%glo_lat(i+1,j) - diag_global_grid%glo_lat(i,j))
+                   count = count+1
                 END IF
+                IF ( j < dimJ ) THEN
+                   dists_lon(2) = ABS(diag_global_grid%glo_lon(i,j+1) - diag_global_grid%glo_lon(i,j))
+                   dists_lat(2) = ABS(diag_global_grid%glo_lat(i,j+1) - diag_global_grid%glo_lat(i,j))
+                   count = count+1
+                END IF
+                IF ( i > 1 ) THEN
+                   dists_lon(3) = ABS(diag_global_grid%glo_lon(i,j) - diag_global_grid%glo_lon(i-1,j))
+                   dists_lat(3) = ABS(diag_global_grid%glo_lat(i,j) - diag_global_grid%glo_lat(i-1,j))
+                   count = count+1
+                END IF
+                IF ( j > 1 ) THEN
+                   dists_lon(4) = ABS(diag_global_grid%glo_lon(i,j) - diag_global_grid%glo_lon(i,j-1))
+                   dists_lat(4) = ABS(diag_global_grid%glo_lat(i,j) - diag_global_grid%glo_lat(i,j-1))
+                   count = count+1
+                END IF
+ 
+                ! Fix wrap around problem
+                DO k=1, 4
+                   IF ( dists_lon(k) > 180.0 ) THEN
+                      dists_lon(k) = 360.0 - dists_lon(k)
+                   END IF
+                END DO
+                delta_lon(i,j) = SUM(dists_lon)/real(count)
+                delta_lat(i,j) = SUM(dists_lat)/real(count)
              END DO
-             delta_lon(i,j) = SUM(dists_lon)/real(count)
-             delta_lat(i,j) = SUM(dists_lat)/real(count)
           END DO
-       END DO
+       END SELECT
 
        ijMin = HUGE(1)
        ijMax = -HUGE(1)
@@ -688,43 +692,48 @@ CONTAINS
        IF ( istat .NE. 0 )&
             & CALL error_mesg('diag_grid_mod::get_local_indexes',&
             &'Cannot allocate temporary longitude array', FATAL)
-       grid_lon = diag_global_grid%glo_lon
 
-       ! Make adjustments where required
-       IF ( my_lonStart > my_lonEnd ) THEN
-          WHERE ( grid_lon < my_lonStart )
-             grid_lon = grid_lon + 360.0
-          END WHERE
-          lonEndAdj = my_lonEnd + 360.0
-       ELSE
-          lonEndAdj = my_lonEnd
-       END IF
+       SELECT TYPE (diag_global_grid)
+       TYPE IS (diag_global_grid_type_r4)
+          grid_lon = diag_global_grid%glo_lon
 
-       DO j=1, dimJ-1
-          DO i=1, dimI-1
-             onMyPe = .false.
-             IF ( latStart-delta_lat(i,j) <= diag_global_grid%glo_lat(i,j) .AND.&
-                  & diag_global_grid%glo_lat(i,j) < latEnd+delta_lat(i,j) ) THEN
-                ! Short-cut for the poles
-                IF ( (ABS(latStart)-delta_lat(i,j) <= 90.0 .AND.&
-                     & 90.0 <= ABS(latEnd)+delta_lat(i,j)) .AND.&
-                     & ABS(diag_global_grid%glo_lat(i,j)) == 90.0 ) THEN
-                   onMyPe = .TRUE.
-                ELSE IF ( (my_lonStart-delta_lon(i,j) <= grid_lon(i,j) .AND.&
-                     & grid_lon(i,j) < lonEndAdj+delta_lon(i,j)) ) THEN
-                   onMyPe = .TRUE.
-                ELSE
-                   onMyPe = .FALSE.
+          ! Make adjustments where required
+          IF ( my_lonStart > my_lonEnd ) THEN
+             WHERE ( grid_lon < my_lonStart )
+                grid_lon = grid_lon + 360.0
+             END WHERE
+             lonEndAdj = my_lonEnd + 360.0
+          ELSE
+             lonEndAdj = my_lonEnd
+          END IF
+
+          DO j=1, dimJ-1
+             DO i=1, dimI-1
+                onMyPe = .false.
+                IF ( latStart-delta_lat(i,j) <= diag_global_grid%glo_lat(i,j) .AND.&
+                     & diag_global_grid%glo_lat(i,j) < latEnd+delta_lat(i,j) ) THEN
+                   ! Short-cut for the poles
+                   IF ( (ABS(latStart)-delta_lat(i,j) <= 90.0 .AND.&
+                        & 90.0 <= ABS(latEnd)+delta_lat(i,j)) .AND.&
+                        & ABS(diag_global_grid%glo_lat(i,j)) == 90.0 ) THEN
+                      onMyPe = .TRUE.
+                   ELSE IF ( (my_lonStart-delta_lon(i,j) <= grid_lon(i,j) .AND.&
+                        & grid_lon(i,j) < lonEndAdj+delta_lon(i,j)) ) THEN
+                      onMyPe = .TRUE.
+                   ELSE
+                      onMyPe = .FALSE.
+                   END IF
+                   IF ( onMyPe ) THEN
+                      ijMin(myTile,1) = MIN(ijMin(myTile,1),i + diag_global_grid%myXbegin - 1)
+                      ijMax(myTile,1) = MAX(ijMax(myTile,1),i + diag_global_grid%myXbegin - 1)
+                      ijMin(myTile,2) = MIN(ijMin(myTile,2),j + diag_global_grid%myYbegin - 1)
+                      ijMax(myTile,2) = MAX(ijMax(myTile,2),j + diag_global_grid%myYbegin - 1)
+                   END IF
                 END IF
-                IF ( onMyPe ) THEN
-                   ijMin(myTile,1) = MIN(ijMin(myTile,1),i + diag_global_grid%myXbegin - 1)
-                   ijMax(myTile,1) = MAX(ijMax(myTile,1),i + diag_global_grid%myXbegin - 1)
-                   ijMin(myTile,2) = MIN(ijMin(myTile,2),j + diag_global_grid%myYbegin - 1)
-                   ijMax(myTile,2) = MAX(ijMax(myTile,2),j + diag_global_grid%myYbegin - 1)
-                END IF
-             END IF
+             END DO
           END DO
-       END DO
+       END SELECT
+
        DEALLOCATE(delta_lon)
        DEALLOCATE(delta_lat)
        DEALLOCATE(grid_lon)
@@ -891,42 +900,46 @@ CONTAINS
        IF ( istat .NE. 0 )&
             & CALL error_mesg('diag_grid_mod::get_local_indexes',&
             &'Cannot allocate longitude delta array', FATAL)
-       DO j=1, dimJ
-          DO i=1, dimI
-             count = 0
-             dists_lon = 0.
-             dists_lat = 0.
-             IF ( i < dimI ) THEN
-                dists_lon(1) = ABS(diag_global_grid%glo_lon(i+1,j) - diag_global_grid%glo_lon(i,j))
-                dists_lat(1) = ABS(diag_global_grid%glo_lat(i+1,j) - diag_global_grid%glo_lat(i,j))
-                count = count+1
-             END IF
-             IF ( j < dimJ ) THEN
-                dists_lon(2) = ABS(diag_global_grid%glo_lon(i,j+1) - diag_global_grid%glo_lon(i,j))
-                dists_lat(2) = ABS(diag_global_grid%glo_lat(i,j+1) - diag_global_grid%glo_lat(i,j))
-                count = count+1
-             END IF
-             IF ( i > 1 ) THEN
-                dists_lon(3) = ABS(diag_global_grid%glo_lon(i,j) - diag_global_grid%glo_lon(i-1,j))
-                dists_lat(3) = ABS(diag_global_grid%glo_lat(i,j) - diag_global_grid%glo_lat(i-1,j))
-                count = count+1
-             END IF
-             IF ( j > 1 ) THEN
-                dists_lon(4) = ABS(diag_global_grid%glo_lon(i,j) - diag_global_grid%glo_lon(i,j-1))
-                dists_lat(4) = ABS(diag_global_grid%glo_lat(i,j) - diag_global_grid%glo_lat(i,j-1))
-                count = count+1
-             END IF
 
-             ! Fix wrap around problem
-             DO k=1, 4
-                IF ( dists_lon(k) > 180.0 ) THEN
-                   dists_lon(k) = 360.0 - dists_lon(k)
+       SELECT TYPE (diag_global_grid)
+       TYPE IS (diag_global_grid_type_r8)
+          DO j=1, dimJ
+             DO i=1, dimI
+                count = 0
+                dists_lon = 0.
+                dists_lat = 0.
+                IF ( i < dimI ) THEN
+                   dists_lon(1) = ABS(diag_global_grid%glo_lon(i+1,j) - diag_global_grid%glo_lon(i,j))
+                   dists_lat(1) = ABS(diag_global_grid%glo_lat(i+1,j) - diag_global_grid%glo_lat(i,j))
+                   count = count+1
                 END IF
+                IF ( j < dimJ ) THEN
+                   dists_lon(2) = ABS(diag_global_grid%glo_lon(i,j+1) - diag_global_grid%glo_lon(i,j))
+                   dists_lat(2) = ABS(diag_global_grid%glo_lat(i,j+1) - diag_global_grid%glo_lat(i,j))
+                   count = count+1
+                END IF
+                IF ( i > 1 ) THEN
+                   dists_lon(3) = ABS(diag_global_grid%glo_lon(i,j) - diag_global_grid%glo_lon(i-1,j))
+                   dists_lat(3) = ABS(diag_global_grid%glo_lat(i,j) - diag_global_grid%glo_lat(i-1,j))
+                   count = count+1
+                END IF
+                IF ( j > 1 ) THEN
+                   dists_lon(4) = ABS(diag_global_grid%glo_lon(i,j) - diag_global_grid%glo_lon(i,j-1))
+                   dists_lat(4) = ABS(diag_global_grid%glo_lat(i,j) - diag_global_grid%glo_lat(i,j-1))
+                   count = count+1
+                END IF
+
+                ! Fix wrap around problem
+                DO k=1, 4
+                   IF ( dists_lon(k) > 180.0 ) THEN
+                      dists_lon(k) = 360.0 - dists_lon(k)
+                   END IF
+                END DO
+                delta_lon(i,j) = SUM(dists_lon)/real(count)
+                delta_lat(i,j) = SUM(dists_lat)/real(count)
              END DO
-             delta_lon(i,j) = SUM(dists_lon)/real(count)
-             delta_lat(i,j) = SUM(dists_lat)/real(count)
           END DO
-       END DO
+       END SELECT
 
        ijMin = HUGE(1)
        ijMax = -HUGE(1)
@@ -936,43 +949,48 @@ CONTAINS
        IF ( istat .NE. 0 )&
             & CALL error_mesg('diag_grid_mod::get_local_indexes',&
             &'Cannot allocate temporary longitude array', FATAL)
-       grid_lon = diag_global_grid%glo_lon
 
-       ! Make adjustments where required
-       IF ( my_lonStart > my_lonEnd ) THEN
-          WHERE ( grid_lon < my_lonStart )
-             grid_lon = grid_lon + 360.0
-          END WHERE
-          lonEndAdj = my_lonEnd + 360.0
-       ELSE
-          lonEndAdj = my_lonEnd
-       END IF
+       SELECT TYPE (diag_global_grid)
+       TYPE IS (diag_global_grid_type_r8)
+          grid_lon = diag_global_grid%glo_lon
 
-       DO j=1, dimJ-1
-          DO i=1, dimI-1
-             onMyPe = .false.
-             IF ( latStart-delta_lat(i,j) <= diag_global_grid%glo_lat(i,j) .AND.&
-                  & diag_global_grid%glo_lat(i,j) < latEnd+delta_lat(i,j) ) THEN
-                ! Short-cut for the poles
-                IF ( (ABS(latStart)-delta_lat(i,j) <= 90.0 .AND.&
-                     & 90.0 <= ABS(latEnd)+delta_lat(i,j)) .AND.&
-                     & ABS(diag_global_grid%glo_lat(i,j)) == 90.0 ) THEN
-                   onMyPe = .TRUE.
-                ELSE IF ( (my_lonStart-delta_lon(i,j) <= grid_lon(i,j) .AND.&
-                     & grid_lon(i,j) < lonEndAdj+delta_lon(i,j)) ) THEN
-                   onMyPe = .TRUE.
-                ELSE
-                   onMyPe = .FALSE.
+          ! Make adjustments where required
+          IF ( my_lonStart > my_lonEnd ) THEN
+             WHERE ( grid_lon < my_lonStart )
+                grid_lon = grid_lon + 360.0
+             END WHERE
+             lonEndAdj = my_lonEnd + 360.0
+          ELSE
+             lonEndAdj = my_lonEnd
+          END IF
+
+          DO j=1, dimJ-1
+             DO i=1, dimI-1
+                onMyPe = .false.
+                IF ( latStart-delta_lat(i,j) <= diag_global_grid%glo_lat(i,j) .AND.&
+                     & diag_global_grid%glo_lat(i,j) < latEnd+delta_lat(i,j) ) THEN
+                   ! Short-cut for the poles
+                   IF ( (ABS(latStart)-delta_lat(i,j) <= 90.0 .AND.&
+                        & 90.0 <= ABS(latEnd)+delta_lat(i,j)) .AND.&
+                        & ABS(diag_global_grid%glo_lat(i,j)) == 90.0 ) THEN
+                      onMyPe = .TRUE.
+                   ELSE IF ( (my_lonStart-delta_lon(i,j) <= grid_lon(i,j) .AND.&
+                        & grid_lon(i,j) < lonEndAdj+delta_lon(i,j)) ) THEN
+                      onMyPe = .TRUE.
+                   ELSE
+                      onMyPe = .FALSE.
+                   END IF
+                   IF ( onMyPe ) THEN
+                      ijMin(myTile,1) = MIN(ijMin(myTile,1),i + diag_global_grid%myXbegin - 1)
+                      ijMax(myTile,1) = MAX(ijMax(myTile,1),i + diag_global_grid%myXbegin - 1)
+                      ijMin(myTile,2) = MIN(ijMin(myTile,2),j + diag_global_grid%myYbegin - 1)
+                      ijMax(myTile,2) = MAX(ijMax(myTile,2),j + diag_global_grid%myYbegin - 1)
+                   END IF
                 END IF
-                IF ( onMyPe ) THEN
-                   ijMin(myTile,1) = MIN(ijMin(myTile,1),i + diag_global_grid%myXbegin - 1)
-                   ijMax(myTile,1) = MAX(ijMax(myTile,1),i + diag_global_grid%myXbegin - 1)
-                   ijMin(myTile,2) = MIN(ijMin(myTile,2),j + diag_global_grid%myYbegin - 1)
-                   ijMax(myTile,2) = MAX(ijMax(myTile,2),j + diag_global_grid%myYbegin - 1)
-                END IF
-             END IF
+             END DO
           END DO
-       END DO
+       END SELECT
+
        DEALLOCATE(delta_lon)
        DEALLOCATE(delta_lat)
        DEALLOCATE(grid_lon)
