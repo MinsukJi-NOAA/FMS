@@ -40,7 +40,7 @@ use platform_mod
        & OPERATOR(.NE.), mpp_get_global_domain, mpp_get_domain_name
   USE fms_mod, ONLY: error_mesg, write_version_number, lowercase, uppercase,&
        & fms_error_handler, FATAL, NOTE
-  USE diag_data_mod, ONLY: diag_axis_type, max_subaxes, max_axes,&
+  USE diag_data_mod, ONLY: diag_axis_type, diag_axis_type_r4, diag_axis_type_r8, max_subaxes, max_axes,&
        & max_num_axis_sets, max_axis_attributes, debug_diag_manager,&
        & first_send_data_call, diag_atttype
 #ifdef use_netCDF
