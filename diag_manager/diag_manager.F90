@@ -4993,10 +4993,11 @@ CONTAINS
 
   !> @brief Initialize Diagnostics Manager.
   !! @details Open and read diag_table. Select fields and files for diagnostic output.
-  SUBROUTINE diag_manager_init(diag_model_subset, time_init, err_msg)
+  SUBROUTINE diag_manager_init(diag_model_subset, time_init, err_msg, precision_in)
     INTEGER, OPTIONAL, INTENT(IN) :: diag_model_subset
     INTEGER, DIMENSION(6), OPTIONAL, INTENT(IN) :: time_init !< Model time diag_manager initialized
     CHARACTER(len=*), INTENT(out), OPTIONAL :: err_msg
+    CLASS(*), INTENT(in), OPTIONAL :: precision_in
 
     CHARACTER(len=*), PARAMETER :: SEP = '|'
 
@@ -5008,6 +5009,7 @@ CONTAINS
     INTEGER :: stdlog_unit, stdout_unit
     integer :: j
     CHARACTER(len=256) :: err_msg_local
+    CLASS(*), ALLOCATABLE :: precision
 
     NAMELIST /diag_manager_nml/ append_pelist_name, mix_snapshot_average_fields, max_output_fields, &
          & max_input_fields, max_axes, do_diag_field_log, write_bytes_in_file, debug_diag_manager,&
@@ -5104,12 +5106,28 @@ CONTAINS
                & '= .FALSE.', WARNING)
        END IF
     END IF
-    ALLOCATE(output_fields(max_output_fields))
-    ALLOCATE(input_fields(max_input_fields))
+
+    IF  ( PRESENT(precision_in) ) THEN
+      ALLOCATE(precision, source=precision_in)
+    ELSE
+      ALLOCATE(real(r8_kind)::precision)
+    END IF
+
+    SELECT TYPE (precision)
+    TYPE IS (real(r4_kind))
+       ALLOCATE(output_field_type_r4::output_fields(max_output_fields))
+       ALLOCATE(input_field_type_r4::input_fields(max_input_fields))
+       ALLOCATE(file_type_r4::files(max_files))
+    TYPE IS (real(r8_kind))
+       ALLOCATE(output_field_type_r8::output_fields(max_output_fields))
+       ALLOCATE(input_field_type_r8::input_fields(max_input_fields))
+       ALLOCATE(file_type_r8::files(max_files))
+    END SELECT
+    DEALLOCATE(precision)
+
     DO j = 1, max_input_fields
       ALLOCATE(input_fields(j)%output_fields(MAX_OUT_PER_IN_FIELD))
     END DO
-    ALLOCATE(files(max_files))
     if (.not.use_mpp_io) then
       ALLOCATE(fileobjU(max_files))
       ALLOCATE(fileobj(max_files))
