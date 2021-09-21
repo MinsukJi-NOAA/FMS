@@ -672,7 +672,7 @@ CONTAINS
     ! do_diag_field_log == .TRUE..
     IF ( do_diag_field_log.AND.allow_log ) THEN
        CALL log_diag_field_info (module_name, field_name, axes, &
-            & long_name, units, missing_value=missing_value_use, range=range_use, &
+            & long_name, units, missing_value=missing_value, range=range, &
             & DYNAMIC=dynamic1)
     END IF
 

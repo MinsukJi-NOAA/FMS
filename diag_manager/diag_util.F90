@@ -634,8 +634,8 @@ CONTAINS
     INTEGER, DIMENSION(:), INTENT(in) :: axes !< Axis IDs
     CHARACTER(len=*), OPTIONAL, INTENT(in) :: long_name !< Long name for field.
     CHARACTER(len=*), OPTIONAL, INTENT(in) :: units !< Unit of field.
-    REAL, OPTIONAL, INTENT(in) :: missing_value !< Missing value value.
-    REAL, DIMENSION(2), OPTIONAL, INTENT(IN) :: range !< Valid range of values for field.
+    CLASS(*), OPTIONAL, INTENT(in) :: missing_value !< Missing value value.
+    CLASS(*), DIMENSION(2), OPTIONAL, INTENT(IN) :: range !< Valid range of values for field.
     LOGICAL, OPTIONAL, INTENT(in) :: dynamic !< <TT>.TRUE.</TT> if field is not static.
 
     ! ---- local vars
@@ -645,6 +645,8 @@ CONTAINS
     CHARACTER(len=1)   :: sep = '|'
     CHARACTER(len=256) :: axis_name, axes_list
     INTEGER :: i
+
+    REAL :: missing_value_use, range_use(2)
 
     IF ( .NOT.do_diag_field_log ) RETURN
     IF ( mpp_pe().NE.mpp_root_pe() ) RETURN
@@ -670,15 +672,27 @@ CONTAINS
        IF ( use_cmor ) THEN
           WRITE (lmissval,*) CMOR_MISSING_VALUE
        ELSE
-          WRITE (lmissval,*) missing_value
+          SELECT TYPE (missing_value)
+          TYPE IS (real(kind=r4_kind))
+             missing_value_use = missing_value
+          TYPE IS (real(kind=r8_kind))
+             missing_value_use = missing_value
+          END SELECT
+          WRITE (lmissval,*) missing_value_use
        END IF
     ELSE
        lmissval = ''
     ENDIF
 
     IF ( PRESENT(range) ) THEN
-       WRITE (lmin,*) range(1)
-       WRITE (lmax,*) range(2)
+       SELECT TYPE (range)
+       TYPE IS (real(kind=r4_kind))
+          range_use = range
+       TYPE IS (real(kind=r8_kind))
+          range_use = range
+       END SELECT
+       WRITE (lmin,*) range_use(1)
+       WRITE (lmax,*) range_use(2)
     ELSE
        lmin = ''
        lmax = ''
