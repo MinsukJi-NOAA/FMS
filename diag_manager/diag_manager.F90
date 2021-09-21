@@ -1519,7 +1519,8 @@ CONTAINS
     CHARACTER(len=256) :: err_msg_local
     CHARACTER(len=128) :: error_string, error_string1
 
-    REAL, DIMENSION(SIZE(field,1),SIZE(field,2),SIZE(field,3)) :: field_out
+    !REAL, DIMENSION(SIZE(field,1),SIZE(field,2),SIZE(field,3)) :: field_out
+    REAL, DIMENSION(:,:,:) :: field_out
 
     ! If diag_field_id is < 0 it means that this field is not registered, simply return
     IF ( diag_field_id <= 0 ) THEN
