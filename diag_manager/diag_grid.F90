@@ -216,15 +216,19 @@ CONTAINS
     ! Module initialized
     diag_grid_initialized = .TRUE.
 
-    select type (glo_lat)
-    type is (real(r4_kind))
-       select type (glo_lon)
-       type is (real(r4_kind))
-          select type (aglo_lat)
-          type is (real(r4_kind))
-             select type (aglo_lon)
-             type is (real(r4_kind))
-                allocate(diag_global_grid_type_r4::diag_global_grid)
+    SELECT TYPE (glo_lat)
+    TYPE IS (real(r4_kind))
+       SELECT TYPE (glo_lon)
+       TYPE IS (real(r4_kind))
+          SELECT TYPE (aglo_lat)
+          TYPE IS (real(r4_kind))
+             SELECT TYPE (aglo_lon)
+             TYPE IS (real(r4_kind))
+                ALLOCATE(diag_global_grid_type_r4::diag_global_grid, STAT=stat)
+                IF ( stat .NE. 0 ) THEN
+                   CALL error_mesg('diag_grid_mod::diag_grid_init',&
+                        &'Could not allocate memory for the global grid.', FATAL)
+                END IF
                 select type (diag_global_grid)
                 type is (diag_global_grid_type_r4)
                    ! Get the size of the grids
@@ -304,18 +308,22 @@ CONTAINS
                    diag_global_grid%dimJ = j_dim
                    diag_global_grid%adimI = ai_dim
                    diag_global_grid%adimJ = aj_dim
-                end select
-             end select
-          end select
-       end select
-    type is (real(r8_kind))
-       select type (glo_lon)
-       type is (real(r8_kind))
-          select type (aglo_lat)
-          type is (real(r8_kind))
-             select type (aglo_lon)
-             type is (real(r8_kind))
-                allocate(diag_global_grid_type_r8::diag_global_grid)
+                END SELECT
+             END SELECT
+          END SELECT
+       END SELECT
+    TYPE IS (real(r8_kind))
+       SELECT TYPE (glo_lon)
+       TYPE IS (real(r8_kind))
+          SELECT TYPE (aglo_lat)
+          TYPE IS (real(r8_kind))
+             SELECT TYPE (aglo_lon)
+             TYPE IS (real(r8_kind))
+                ALLOCATE(diag_global_grid_type_r8::diag_global_grid, STAT=stat)
+                IF ( stat .NE. 0 ) THEN
+                   CALL error_mesg('diag_grid_mod::diag_grid_init',&
+                        &'Could not allocate memory for the global grid.', FATAL)
+                END IF
                 select type (diag_global_grid)
                 type is (diag_global_grid_type_r8)
                    ! Get the size of the grids
@@ -395,11 +403,11 @@ CONTAINS
                    diag_global_grid%dimJ = j_dim
                    diag_global_grid%adimI = ai_dim
                    diag_global_grid%adimJ = aj_dim
-                end select
-             end select
-          end select
-       end select
-    end select
+                END SELECT
+             END SELECT
+          END SELECT
+       END SELECT
+    END SELECT
 
     !--- For the nested model, the nested region only has 1 tile ( ntiles = 1) but
     !--- the tile_id is 7 for the nested region. In the routine get_local_indexes,
@@ -1803,7 +1811,7 @@ CONTAINS
     ! are in the range [-90,90], but we need to have a radian range
     ! [0,pi], where 0 is at the north pole.  This is the reason for
     ! the subtraction from 90
-    theta = deg2rad_r8(90.-lat)
+    theta = deg2rad_r8(90.0_r8_kind-lat)
     phi = deg2rad_r8(lon)
 
     ! Calculate the x,y,z point
