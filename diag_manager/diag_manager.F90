@@ -1886,7 +1886,6 @@ CONTAINS
        END IF
 
        IF ( .NOT.output_fields(out_num)%static .AND. .NOT.need_compute .AND. debug_diag_manager ) THEN
-          PRINT*, "HELLO====check_bounds_are_exact_dynamic"
           CALL check_bounds_are_exact_dynamic(out_num, diag_field_id, Time, err_msg=err_msg_local)
           IF ( err_msg_local /= '' ) THEN
              IF ( fms_error_handler('diag_manager_mod::send_data_3d', err_msg_local, err_msg) ) THEN
@@ -1915,6 +1914,8 @@ CONTAINS
              IF ( PRESENT(mask) ) THEN
                 IF ( missvalue_present ) THEN
                    IF ( debug_diag_manager ) THEN
+                      PRINT*, "====UPDATE_BOUND #1===="
+                      PRINT*, is-hi, ie-hi, js-hj, je-hj,ks,ke
                       CALL update_bounds(out_num, is-hi, ie-hi, js-hj, je-hj, ks, ke)
                       CALL check_out_of_bounds(out_num, diag_field_id, err_msg=err_msg_local)
                       IF ( err_msg_local /= '' ) THEN
@@ -2148,6 +2149,8 @@ CONTAINS
                       END IF
                    ELSE
                       IF ( debug_diag_manager ) THEN
+                         PRINT*, "====UPDATE_BOUND #2===="
+                         PRINT*, is-hi, ie-hi, js-hj, je-hj,ks,ke
                          CALL update_bounds(out_num, is-hi, ie-hi, js-hj, je-hj, ks, ke)
                          CALL check_out_of_bounds(out_num, diag_field_id, err_msg=err_msg_local)
                          IF ( err_msg_local /= '' ) THEN
@@ -2302,6 +2305,8 @@ CONTAINS
                       END IF
                    ELSE
                       IF ( debug_diag_manager ) THEN
+                         PRINT*, "====UPDATE_BOUND #3===="
+                         PRINT*, is-hi, ie-hi, js-hj, je-hj,ks,ke
                          CALL update_bounds(out_num, is-hi, ie-hi, js-hj, je-hj, ks, ke)
                          CALL check_out_of_bounds(out_num, diag_field_id, err_msg=err_msg_local)
                          IF ( err_msg_local /= '') THEN
@@ -2483,6 +2488,8 @@ CONTAINS
 !$OMP END CRITICAL
                    ELSE
                       IF ( debug_diag_manager ) THEN
+                         PRINT*, "====UPDATE_BOUND #4===="
+                         PRINT*, is-hi, ie-hi, js-hj, je-hj,ks,ke
                          CALL update_bounds(out_num, is-hi, ie-hi, js-hj, je-hj, ks, ke)
                          CALL check_out_of_bounds(out_num, diag_field_id, err_msg=err_msg_local)
                          IF ( err_msg_local /= '' ) THEN
@@ -2625,6 +2632,8 @@ CONTAINS
                       END IF
                    ELSE
                       IF ( debug_diag_manager ) THEN
+                         PRINT*, "====UPDATE_BOUND #5===="
+                         PRINT*, is-hi, ie-hi, js-hj, je-hj,ks,ke
                          CALL update_bounds(out_num, is-hi, ie-hi, js-hj, je-hj, ks, ke)
                          CALL check_out_of_bounds(out_num, diag_field_id, err_msg=err_msg_local)
                          IF ( err_msg_local /= '' ) THEN
@@ -2701,6 +2710,8 @@ CONTAINS
                      & output_fields(out_num)%buffer(is-hi:ie-hi,js-hj:je-hj,:,sample) = field_out(f1:f2,f3:f4,ksr:ker)
              ELSE
                 IF ( debug_diag_manager ) THEN
+                   PRINT*, "====UPDATE_BOUND #6===="
+                   PRINT*, is-hi, ie-hi, js-hj, je-hj,ks,ke
                    CALL update_bounds(out_num, is-hi, ie-hi, js-hj, je-hj, ks, ke)
                    CALL check_out_of_bounds(out_num, diag_field_id, err_msg=err_msg_local)
                    IF ( err_msg_local /= '' ) THEN
@@ -2738,6 +2749,8 @@ CONTAINS
                      & output_fields(out_num)%buffer(is-hi:ie-hi,js-hj:je-hj,:,sample) = field_out(f1:f2,f3:f4,ksr:ker)
              ELSE
                 IF ( debug_diag_manager ) THEN
+                   PRINT*, "====UPDATE_BOUND #7===="
+                   PRINT*, is-hi, ie-hi, js-hj, je-hj,ks,ke
                    CALL update_bounds(out_num, is-hi, ie-hi, js-hj, je-hj, ks, ke)
                    CALL check_out_of_bounds(out_num, diag_field_id, err_msg=err_msg_local)
                    IF ( err_msg_local /= '' ) THEN
@@ -2779,6 +2792,8 @@ CONTAINS
                      & output_fields(out_num)%buffer(is-hi:ie-hi,js-hj:je-hj,:,sample) = field_out(f1:f2,f3:f4,ksr:ker)
              ELSE
                 IF ( debug_diag_manager ) THEN
+                   PRINT*, "====UPDATE_BOUND #8===="
+                   PRINT*, is-hi, ie-hi, js-hj, je-hj,ks,ke
                    CALL update_bounds(out_num, is-hi, ie-hi, js-hj, je-hj, ks, ke)
                    CALL check_out_of_bounds(out_num, diag_field_id, err_msg=err_msg_local)
                    IF ( err_msg_local /= '' ) THEN
@@ -2816,6 +2831,8 @@ CONTAINS
                      output_fields(out_num)%buffer(is-hi:ie-hi,js-hj:je-hj,:,sample) = field_out(f1:f2,f3:f4,ksr:ker)
              ELSE
                 IF ( debug_diag_manager ) THEN
+                   PRINT*, "====UPDATE_BOUND #9===="
+                   PRINT*, is-hi, ie-hi, js-hj, je-hj,ks,ke
                    CALL update_bounds(out_num, is-hi, ie-hi, js-hj, je-hj, ks, ke)
                    CALL check_out_of_bounds(out_num, diag_field_id, err_msg=err_msg_local)
                    IF ( err_msg_local /= '' ) THEN
@@ -2858,6 +2875,8 @@ CONTAINS
                      &   field_out(f1:f2,f3:f4,ksr:ker)
              ELSE
                 IF ( debug_diag_manager ) THEN
+                   PRINT*, "====UPDATE_BOUND #10===="
+                   PRINT*, is-hi, ie-hi, js-hj, je-hj,ks,ke
                    CALL update_bounds(out_num, is-hi, ie-hi, js-hj, je-hj, ks, ke)
                    CALL check_out_of_bounds(out_num, diag_field_id, err_msg=err_msg_local)
                    IF ( err_msg_local /= '' ) THEN
@@ -2896,6 +2915,8 @@ CONTAINS
                      &  field_out(f1:f2,f3:f4,ksr:ker)
              ELSE
                 IF ( debug_diag_manager ) THEN
+                   PRINT*, "====UPDATE_BOUND #11===="
+                   PRINT*, is-hi, ie-hi, js-hj, je-hj,ks,ke
                    CALL update_bounds(out_num, is-hi, ie-hi, js-hj, je-hj, ks, ke)
                    CALL check_out_of_bounds(out_num, diag_field_id, err_msg=err_msg_local)
                    IF ( err_msg_local /= '' ) THEN
@@ -2930,6 +2951,8 @@ CONTAINS
              output_fields(out_num)%buffer(is-hi:ie-hi,js-hj:je-hj,:,sample) = field_out(f1:f2,f3:f4,ksr:ker)
           ELSE
              IF ( debug_diag_manager ) THEN
+                PRINT*, "====UPDATE_BOUND #12===="
+                PRINT*, is-hi, ie-hi, js-hj, je-hj,ks,ke
                 CALL update_bounds(out_num, is-hi, ie-hi, js-hj, je-hj, ks, ke)
                 CALL check_out_of_bounds(out_num, diag_field_id, err_msg=err_msg_local)
                 IF ( err_msg_local /= '' ) THEN
@@ -2983,7 +3006,6 @@ CONTAINS
        END IF !average
 
        IF ( output_fields(out_num)%static .AND. .NOT.need_compute .AND. debug_diag_manager ) THEN
-          PRINT*, "HELLO====check_bounds_are_exact_static"
           CALL check_bounds_are_exact_static(out_num, diag_field_id, err_msg=err_msg_local)
           IF ( err_msg_local /= '' ) THEN
              IF ( fms_error_handler('diag_manager_mod::send_data_3d', err_msg_local, err_msg)) THEN
