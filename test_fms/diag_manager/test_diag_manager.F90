@@ -712,7 +712,8 @@ SELECT CASE ( test_number ) ! Closes just before the CONTAINS block.
 
   IF ( test_number == 10 ) THEN
      !  1 window, no halos, static, 1 dimension, global data.
-
+     PRINT*, "====HELLO FROM TEST_DIAG_MANAGER===="
+     PRINT*, nlev, size(bk)
      IF ( id_bk > 0 ) used = send_data(id_bk, bk, err_msg=err_msg)
      IF ( err_msg == '' ) THEN
         WRITE (out_unit,'(a)') 'test10.1 successful.'
@@ -730,6 +731,8 @@ SELECT CASE ( test_number ) ! Closes just before the CONTAINS block.
   END IF
 
   IF ( test_number == 9 ) THEN
+     PRINT*, "====HELLO FROM TEST_DIAG_MANAGER===="
+     PRINT*, nlev, size(bk)
      !  1 window, no halos, static, 1 dimension, global data
      IF ( id_bk > 0 ) used = send_data(id_bk, bk, err_msg=err_msg)
      IF ( err_msg == '' ) THEN
