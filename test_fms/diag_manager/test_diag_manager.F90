@@ -716,10 +716,10 @@ SELECT CASE ( test_number ) ! Closes just before the CONTAINS block.
      IF ( id_bk > 0 ) used = send_data(id_bk, bk, err_msg=err_msg)
      IF ( err_msg == '' ) THEN
         WRITE (out_unit,'(a)') 'test10.1 successful.'
-        WRITE (out_unit) id_bk
+        WRITE (out_unit, I10) id_bk
      ELSE
         WRITE (out_unit,'(a)') 'test10.1 fails: err_msg='//TRIM(err_msg)
-        WRITE (out_unit) id_bk
+        WRITE (out_unit, I10) id_bk
      END IF
 
      !  intentional_error: data array too large.
@@ -736,10 +736,10 @@ SELECT CASE ( test_number ) ! Closes just before the CONTAINS block.
      IF ( id_bk > 0 ) used = send_data(id_bk, bk, err_msg=err_msg)
      IF ( err_msg == '' ) THEN
         WRITE (out_unit,'(a)') 'test9.1 successful.'
-        WRITE (out_unit) id_bk
+        WRITE (out_unit, I10) id_bk
      ELSE
         WRITE (out_unit,'(a)') 'test9.1 fails: err_msg='//TRIM(err_msg)
-        WRITE (out_unit) id_bk
+        WRITE (out_unit, I10) id_bk
      END IF
 
      !  intentional_error: data array too small
