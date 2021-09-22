@@ -896,6 +896,8 @@ CONTAINS
               local_start(2) = output_fields(out_num)%output_grid%l_start_indx(2)
               local_end(2) = output_fields(out_num)%output_grid%l_end_indx(2)
               local_siz(2) = local_end(2) - local_start(2) + 1
+              PRINT*, "HELLO====ALLOCATE OUTPUT_FIELDS BUFFER #1===="
+              PRINT*, siz(1), local_siz(2), siz(3), output_fields(out_num)%n_diurnal_samples
               allocate(output_fields(out_num)%buffer(siz(1),local_siz(2),siz(3), &
                                                      output_fields(out_num)%n_diurnal_samples))
               output_fields(out_num)%region_elements = siz(1)*local_siz(2)*siz(3)
@@ -904,6 +906,8 @@ CONTAINS
               local_start(3) = output_fields(out_num)%output_grid%l_start_indx(3)
               local_end(3) = output_fields(out_num)%output_grid%l_end_indx(3)
               local_siz(3) = local_end(3) - local_start(3) + 1
+              PRINT*, "HELLO====ALLOCATE OUTPUT_FIELDS BUFFER #2===="
+              PRINT*, siz(1), siz(2), local_siz(3), output_fields(out_num)%n_diurnal_samples
               allocate(output_fields(out_num)%buffer(siz(1),siz(2),local_siz(3), &
                                                      output_fields(out_num)%n_diurnal_samples))
               output_fields(out_num)%region_elements = siz(1)*siz(2)*local_siz(3)
@@ -932,6 +936,8 @@ CONTAINS
                 local_end(k) = output_fields(out_num)%output_grid%l_end_indx(k)
                 local_siz(k) = local_end(k) - local_start(k) +1
              END DO
+             PRINT*, "HELLO====ALLOCATE OUTPUT_FIELDS BUFFER #3===="
+             PRINT*, local_siz(1), local_siz(2), local_siz(3), output_fields(out_num)%n_diurnal_samples
              ALLOCATE(output_fields(out_num)%buffer(local_siz(1), local_siz(2), local_siz(3),&
                   & output_fields(out_num)%n_diurnal_samples))
              IF(output_fields(out_num)%time_max) THEN
@@ -947,6 +953,8 @@ CONTAINS
           END IF
        ELSE ! the field is output globally
           ! size of output_fields equal size of input_fields
+          PRINT*, "HELLO====ALLOCATE OUTPUT_FIELDS BUFFER #4===="
+          PRINT*, siz(1), siz(2), siz(3), output_fields(out_num)%n_diurnal_samples
           ALLOCATE(output_fields(out_num)%buffer(siz(1), siz(2), siz(3),&
                & output_fields(out_num)%n_diurnal_samples))
           IF(output_fields(out_num)%time_max) THEN
@@ -1878,6 +1886,7 @@ CONTAINS
        END IF
 
        IF ( .NOT.output_fields(out_num)%static .AND. .NOT.need_compute .AND. debug_diag_manager ) THEN
+          PRINT*, "HELLO====check_bounds_are_exact_dynamic"
           CALL check_bounds_are_exact_dynamic(out_num, diag_field_id, Time, err_msg=err_msg_local)
           IF ( err_msg_local /= '' ) THEN
              IF ( fms_error_handler('diag_manager_mod::send_data_3d', err_msg_local, err_msg) ) THEN
@@ -2974,6 +2983,7 @@ CONTAINS
        END IF !average
 
        IF ( output_fields(out_num)%static .AND. .NOT.need_compute .AND. debug_diag_manager ) THEN
+          PRINT*, "HELLO====check_bounds_are_exact_static"
           CALL check_bounds_are_exact_static(out_num, diag_field_id, err_msg=err_msg_local)
           IF ( err_msg_local /= '' ) THEN
              IF ( fms_error_handler('diag_manager_mod::send_data_3d', err_msg_local, err_msg)) THEN
