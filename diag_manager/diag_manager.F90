@@ -1300,7 +1300,7 @@ CONTAINS
     LOGICAL, DIMENSION(SIZE(field(:)), 1, 1) ::  mask_out
 
     PRINT*, "====HELLO FROM SEND_DATA_1D===="
-    PRINT*, size(field), size(field,1), size(field,2), size(field,3)
+    PRINT*, size(field), size(field(:)), size(field,1)
     PRINT*, size(field_out), size(field_out,1), size(field_out,2), size(field_out,3)
     ! If diag_field_id is < 0 it means that this field is not registered, simply return
     IF ( diag_field_id <= 0 ) THEN
