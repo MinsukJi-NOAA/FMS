@@ -1520,7 +1520,7 @@ CONTAINS
     CHARACTER(len=256) :: err_msg_local
     CHARACTER(len=128) :: error_string, error_string1
 
-    REAL, DIMENSION(SIZE(field,1),SIZE(field,2),SIZE(field,3)) :: field_out
+    REAL, ALLOCATABLE, DIMENSION(:,:,:) :: field_out
 
     ! If diag_field_id is < 0 it means that this field is not registered, simply return
     IF ( diag_field_id <= 0 ) THEN
@@ -1531,6 +1531,12 @@ CONTAINS
     END IF
 
     ! First copy the data to a three d array
+    ALLOCATE(field_out(SIZE(field,1),SIZE(field,2),SIZE(field,3)), STAT=status)
+    IF ( status .NE. 0 ) THEN
+       WRITE (err_msg_local, FMT='("Unable to allocate field_out(",I5,",",I5,",",I5,"). (STAT: ",I5,")")')&
+            & SIZE(field,1), SIZE(field,2), SIZE(field,3), status
+       IF ( fms_error_handler('diag_manager_mod::send_data_3d', err_msg_local, err_msg) ) RETURN
+    END IF
     SELECT TYPE (field)
     TYPE IS (real(kind=r4_kind))
        field_out = field
@@ -3061,6 +3067,7 @@ CONTAINS
 
     END DO num_out_fields
 
+    DEALLOCATE(field_out)
     DEALLOCATE(oor_mask)
   END FUNCTION send_data_3d
 
