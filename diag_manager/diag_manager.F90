@@ -1673,6 +1673,8 @@ CONTAINS
        je=n2-hj
     END IF
 
+    PRINT*, "====HELLO FROM SEND_DATA_3D BEGINNING===="
+    PRINT*, IS, IE, JS, JE, KS, KE, HI, HJ, N1, N2
     ! used for field, mask and rmask bounds
     f1=1+hi
     f2=n1-hi
