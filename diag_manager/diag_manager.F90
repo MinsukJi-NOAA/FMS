@@ -331,8 +331,8 @@ use platform_mod
      MODULE PROCEDURE send_data_2d
      MODULE PROCEDURE send_data_3d
 #ifdef OVERLOAD_R8
-     MODULE PROCEDURE send_data_2d_r8
-     MODULE PROCEDURE send_data_3d_r8
+     !MODULE PROCEDURE send_data_2d_r8
+     !MODULE PROCEDURE send_data_3d_r8
 #endif
   END INTERFACE
 
