@@ -405,8 +405,10 @@ CONTAINS
     INTEGER, INTENT(in) :: axes(:)
     TYPE(time_type), INTENT(in) :: init_time
     CHARACTER(len=*), OPTIONAL, INTENT(in) :: long_name, units, standard_name
-    CLASS(*), OPTIONAL, INTENT(in) :: missing_value
-    CLASS(*), DIMENSION(2), OPTIONAL, INTENT(in) :: range
+    !CLASS(*), OPTIONAL, INTENT(in) :: missing_value
+    !CLASS(*), DIMENSION(2), OPTIONAL, INTENT(in) :: range
+    REAL, OPTIONAL, INTENT(in) :: missing_value
+    REAL, DIMENSION(2), OPTIONAL, INTENT(in) :: range
     LOGICAL, OPTIONAL, INTENT(in) :: mask_variant,verbose
     LOGICAL, OPTIONAL, INTENT(in) :: do_not_log !< if TRUE, field info is not logged
     CHARACTER(len=*), OPTIONAL, INTENT(out):: err_msg
