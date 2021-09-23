@@ -595,9 +595,9 @@ CONTAINS
     CHARACTER(len=*), INTENT(in) :: module_name, field_name
     INTEGER, DIMENSION(:), INTENT(in) :: axes
     CHARACTER(len=*), OPTIONAL, INTENT(in) :: long_name, units, standard_name
-    !CLASS(*), OPTIONAL, INTENT(in) :: missing_value
+    CLASS(*), OPTIONAL, INTENT(in) :: missing_value
     !CLASS(*), DIMENSION(2), OPTIONAL, INTENT(in) :: range
-    REAL, OPTIONAL, INTENT(in) :: missing_value
+    !REAL, OPTIONAL, INTENT(in) :: missing_value
     REAL, DIMENSION(2), OPTIONAL, INTENT(in) :: range
     LOGICAL, OPTIONAL, INTENT(in) :: mask_variant
     LOGICAL, OPTIONAL, INTENT(in) :: DYNAMIC
@@ -631,13 +631,13 @@ CONTAINS
        IF ( use_cmor ) THEN
           missing_value_use = CMOR_MISSING_VALUE
        ELSE
-          missing_value_use = missing_value
-          !SELECT TYPE (missing_value)
-          !TYPE IS (real(kind=r4_kind))
-          !   missing_value_use = missing_value
-          !TYPE IS (real(kind=r8_kind))
-          !   missing_value_use = missing_value
-          !END SELECT
+          !missing_value_use = missing_value
+          SELECT TYPE (missing_value)
+          TYPE IS (real(kind=r4_kind))
+             missing_value_use = missing_value
+          TYPE IS (real(kind=r8_kind))
+             missing_value_use = missing_value
+          END SELECT
        END IF
     END IF
 
