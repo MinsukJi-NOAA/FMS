@@ -373,8 +373,10 @@ CONTAINS
     CHARACTER(len=*), INTENT(in) :: module_name, field_name
     TYPE(time_type), OPTIONAL, INTENT(in) :: init_time
     CHARACTER(len=*), OPTIONAL, INTENT(in) :: long_name, units, standard_name
-    CLASS(*), OPTIONAL, INTENT(in) :: missing_value
-    CLASS(*), DIMENSION(2), OPTIONAL, INTENT(in) :: RANGE
+    !CLASS(*), OPTIONAL, INTENT(in) :: missing_value
+    !CLASS(*), DIMENSION(2), OPTIONAL, INTENT(in) :: RANGE
+    REAL, OPTIONAL, INTENT(in) :: missing_value
+    REAL, DIMENSION(2), OPTIONAL, INTENT(in) :: RANGE
     LOGICAL, OPTIONAL, INTENT(in) :: do_not_log !< if TRUE, field information is not logged
     CHARACTER(len=*), OPTIONAL, INTENT(out):: err_msg
     INTEGER, OPTIONAL, INTENT(in) :: area, volume
