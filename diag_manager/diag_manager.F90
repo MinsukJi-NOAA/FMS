@@ -644,9 +644,13 @@ CONTAINS
     IF ( PRESENT(range) ) THEN
        SELECT TYPE (range)
        TYPE IS (real(kind=r4_kind))
+          PRINT*, "====HELLO FROM REGISTER_STATIC_FIELD #1 R4===="
           range_use = range
+          PRINT*, range(1), range(2), range_use(1), range_use(2)
        TYPE IS (real(kind=r8_kind))
+          PRINT*, "====HELLO FROM REGISTER_STATIC_FIELD #2 R8===="
           range_use = range
+          PRINT*, range(1), range(2), range_use(1), range_use(2)
        END SELECT
     END IF
 
@@ -793,10 +797,13 @@ CONTAINS
     END IF
 
     IF ( PRESENT(range) ) THEN
+       PRINT*, "====HELLO FROM REGISTER_STATIC_FIELD #3 ===="
        input_fields(field)%range = range_use
+       PRINT*, range_use(1), range_use(2), input_fields(field)%range(1), input_fields(field)%range(2)
        !input_fields(field)%range = range
        ! don't use the range if it is not a valid range
        input_fields(field)%range_present = range_use(2) .gt. range_use(1)
+       PRINT*, range_use(1), range_use(2), input_fields(field)%range_present
        !input_fields(field)%range_present = range(2) .gt. range(1)
     ELSE
        input_fields(field)%range = (/ 1., 0. /)
