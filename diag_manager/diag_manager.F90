@@ -591,7 +591,8 @@ CONTAINS
     INTEGER, DIMENSION(:), INTENT(in) :: axes
     CHARACTER(len=*), OPTIONAL, INTENT(in) :: long_name, units, standard_name
     CLASS(*), OPTIONAL, INTENT(in) :: missing_value
-    CLASS(*), DIMENSION(2), OPTIONAL, INTENT(in) :: range
+    !CLASS(*), DIMENSION(2), OPTIONAL, INTENT(in) :: range
+    REAL, DIMENSION(2), OPTIONAL, INTENT(in) :: range
     LOGICAL, OPTIONAL, INTENT(in) :: mask_variant
     LOGICAL, OPTIONAL, INTENT(in) :: DYNAMIC
     LOGICAL, OPTIONAL, INTENT(in) :: do_not_log !< if TRUE, field information is not logged
@@ -775,16 +776,16 @@ CONTAINS
     END IF
 
     IF ( PRESENT(range) ) THEN
-       SELECT TYPE (range)
-       TYPE IS (real(kind=r4_kind))
+       !SELECT TYPE (range)
+       !TYPE IS (real(kind=r4_kind))
           input_fields(field)%range = range
           ! don't use the range if it is not a valid range
           input_fields(field)%range_present = range(2) .gt. range(1)
-       TYPE IS (real(kind=r8_kind))
-          input_fields(field)%range = range
-          ! don't use the range if it is not a valid range
-          input_fields(field)%range_present = range(2) .gt. range(1)
-       END SELECT
+       !TYPE IS (real(kind=r8_kind))
+       !   input_fields(field)%range = range
+       !   ! don't use the range if it is not a valid range
+       !   input_fields(field)%range_present = range(2) .gt. range(1)
+       !END SELECT
     ELSE
        input_fields(field)%range = (/ 1., 0. /)
        input_fields(field)%range_present = .FALSE.
