@@ -634,8 +634,8 @@ CONTAINS
     INTEGER, DIMENSION(:), INTENT(in) :: axes !< Axis IDs
     CHARACTER(len=*), OPTIONAL, INTENT(in) :: long_name !< Long name for field.
     CHARACTER(len=*), OPTIONAL, INTENT(in) :: units !< Unit of field.
-    REAL, OPTIONAL, INTENT(in) :: missing_value !< Missing value value.
-    REAL, DIMENSION(2), OPTIONAL, INTENT(IN) :: range !< Valid range of values for field.
+    CLASS(*), OPTIONAL, INTENT(in) :: missing_value !< Missing value value.
+    CLASS(*), DIMENSION(2), OPTIONAL, INTENT(IN) :: range !< Valid range of values for field.
     LOGICAL, OPTIONAL, INTENT(in) :: dynamic !< <TT>.TRUE.</TT> if field is not static.
 
     ! ---- local vars
@@ -670,15 +670,26 @@ CONTAINS
        IF ( use_cmor ) THEN
           WRITE (lmissval,*) CMOR_MISSING_VALUE
        ELSE
-          WRITE (lmissval,*) missing_value
+          SELECT TYPE (missing_value)
+          TYPE IS (real(kind=r4_kind))
+             WRITE (lmissval,*) missing_value
+          TYPE IS (real(kind=r8_kind))
+             WRITE (lmissval,*) missing_value
+          END SELECT
        END IF
     ELSE
        lmissval = ''
     ENDIF
 
     IF ( PRESENT(range) ) THEN
-       WRITE (lmin,*) range(1)
-       WRITE (lmax,*) range(2)
+       SELECT TYPE (range)
+       TYPE IS (real(kind=r4_kind))
+          WRITE (lmin,*) range(1)
+          WRITE (lmax,*) range(2)
+       TYPE IS (real(kind=r8_kind))
+          WRITE (lmin,*) range(1)
+          WRITE (lmax,*) range(2)
+       END SELECT
     ELSE
        lmin = ''
        lmax = ''
