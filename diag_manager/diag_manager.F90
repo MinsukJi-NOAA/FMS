@@ -590,8 +590,8 @@ CONTAINS
     CHARACTER(len=*), INTENT(in) :: module_name, field_name
     INTEGER, DIMENSION(:), INTENT(in) :: axes
     CHARACTER(len=*), OPTIONAL, INTENT(in) :: long_name, units, standard_name
-    REAL, OPTIONAL, INTENT(in) :: missing_value
-    REAL, DIMENSION(2), OPTIONAL, INTENT(in) :: range
+    CLASS(*), OPTIONAL, INTENT(in) :: missing_value
+    CLASS(*), DIMENSION(2), OPTIONAL, INTENT(in) :: range
     LOGICAL, OPTIONAL, INTENT(in) :: mask_variant
     LOGICAL, OPTIONAL, INTENT(in) :: DYNAMIC
     LOGICAL, OPTIONAL, INTENT(in) :: do_not_log !< if TRUE, field information is not logged
@@ -605,6 +605,7 @@ CONTAINS
     CHARACTER(len=*), OPTIONAL, INTENT(in) :: realm !< String to set as the value to the modeling_realm attribute
 
     REAL :: missing_value_use
+    REAL, DIMENSION(2) :: range_use
     INTEGER :: field, num_axes, j, out_num, k
     INTEGER, DIMENSION(3) :: siz, local_siz, local_start, local_end ! indices of local domain of global axes
     INTEGER :: tile, file_num
@@ -623,8 +624,22 @@ CONTAINS
        IF ( use_cmor ) THEN
           missing_value_use = CMOR_MISSING_VALUE
        ELSE
-          missing_value_use = missing_value
+          SELECT TYPE (missing_value)
+          TYPE IS (real(kind=r4_kind))
+             missing_value_use = missing_value
+          TYPE IS (real(kind=r8_kind))
+             missing_value_use = missing_value
+          END SELECT
        END IF
+    END IF
+
+    IF ( PRESENT(range) ) THEN
+       SELECT TYPE (range)
+       TYPE IS (real(kind=r4_kind))
+          range_use = range
+       TYPE IS (real(kind=r8_kind))
+          range_use = range
+       END SELECT
     END IF
 
     IF ( PRESENT(mask_variant) ) THEN
@@ -770,9 +785,9 @@ CONTAINS
     END IF
 
     IF ( PRESENT(range) ) THEN
-       input_fields(field)%range = range
+       input_fields(field)%range = range_use
        ! don't use the range if it is not a valid range
-       input_fields(field)%range_present = range(2) .gt. range(1)
+       input_fields(field)%range_present = range_use(2) .gt. range_use(1)
     ELSE
        input_fields(field)%range = (/ 1., 0. /)
        input_fields(field)%range_present = .FALSE.
