@@ -775,21 +775,21 @@ CONTAINS
        input_fields(field)%missing_value_present = .FALSE.
     END IF
 
-    !IF ( PRESENT(range) ) THEN
-    !   SELECT TYPE (range)
-    !   TYPE IS (real(kind=r4_kind))
-    !      input_fields(field)%range = range
+    IF ( PRESENT(range) ) THEN
+       SELECT TYPE (range)
+       TYPE IS (real(kind=r4_kind))
+          input_fields(field)%range = range
+          ! don't use the range if it is not a valid range
+    !      input_fields(field)%range_present = range(2) .gt. range(1)
+       TYPE IS (real(kind=r8_kind))
+          input_fields(field)%range = range
     !      ! don't use the range if it is not a valid range
     !      input_fields(field)%range_present = range(2) .gt. range(1)
-    !   TYPE IS (real(kind=r8_kind))
-    !      input_fields(field)%range = range
-    !      ! don't use the range if it is not a valid range
-    !      input_fields(field)%range_present = range(2) .gt. range(1)
-    !   END SELECT
-    !ELSE
+       END SELECT
+    ELSE
        input_fields(field)%range = (/ 1., 0. /)
        input_fields(field)%range_present = .FALSE.
-    !END IF
+    END IF
 
     IF ( PRESENT(interp_method) ) THEN
        IF ( TRIM(interp_method) .NE. 'conserve_order1' .AND.&
