@@ -713,6 +713,8 @@ SELECT CASE ( test_number ) ! Closes just before the CONTAINS block.
   IF ( test_number == 10 ) THEN
      !  1 window, no halos, static, 1 dimension, global data.
 
+     PRINT*,"====HELL FROM TEST 10===="
+     PRINT*,"id_bk is", id_bk
      IF ( id_bk > 0 ) used = send_data(id_bk, bk, err_msg=err_msg)
      IF ( err_msg == '' ) THEN
         WRITE (out_unit,'(a)') 'test10.1 successful.'
