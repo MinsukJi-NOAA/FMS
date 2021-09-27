@@ -2996,7 +2996,7 @@ CONTAINS
              ksr= l_start(3)
              ker= l_end(3)
              SELECT TYPE (rmask)
-             TYPE IS (real(kind=r4)kind)
+             TYPE IS (real(kind=r4_kind))
                 DO k= ksr, ker
                    k1 = k - ksr + 1
                    DO j=js, je
@@ -3006,7 +3006,7 @@ CONTAINS
                       END DO
                    END DO
                 END DO
-             TYPE IS (real(kind=r8)kind)
+             TYPE IS (real(kind=r8_kind))
                 DO k= ksr, ker
                    k1 = k - ksr + 1
                    DO j=js, je
@@ -3019,7 +3019,7 @@ CONTAINS
              END SELECT
           ELSE
              SELECT TYPE (rmask)
-             TYPE IS (real(kind=r4)kind)
+             TYPE IS (real(kind=r4_kind))
                 DO k=ks, ke
                    DO j=js, je
                       DO i=is, ie
@@ -3028,7 +3028,7 @@ CONTAINS
                       END DO
                    END DO
                 END DO
-             TYPE IS (real(kind=r8)kind)
+             TYPE IS (real(kind=r8_kind))
                 DO k=ks, ke
                    DO j=js, je
                       DO i=is, ie
