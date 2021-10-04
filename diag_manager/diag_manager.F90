@@ -776,7 +776,7 @@ CONTAINS
     END IF
 
     IF ( PRESENT(range) ) THEN
-       IF (SIZE(range) != 2) THEN
+       IF (SIZE(range) .NE. 2) THEN
           PRINT* "diag_manager.F90 register_static_field: range should have 2 elements"
        END IF
        SELECT TYPE (range)
