@@ -591,7 +591,7 @@ CONTAINS
     INTEGER, DIMENSION(:), INTENT(in) :: axes
     CHARACTER(len=*), OPTIONAL, INTENT(in) :: long_name, units, standard_name
     CLASS(*), OPTIONAL, INTENT(in) :: missing_value
-    CLASS(*), OPTIONAL, INTENT(in) :: range(:)
+    CLASS(*), DIMENSION(:), OPTIONAL, INTENT(in) :: range
     !REAL, DIMENSION(2), OPTIONAL, INTENT(in) :: range
     LOGICAL, OPTIONAL, INTENT(in) :: mask_variant
     LOGICAL, OPTIONAL, INTENT(in) :: DYNAMIC
