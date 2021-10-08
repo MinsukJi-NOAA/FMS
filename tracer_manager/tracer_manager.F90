@@ -76,7 +76,7 @@ use field_manager_mod, only : field_manager_init, &
                               fm_exists,          &
                               MODEL_NAMES
 
-use platform_mod
+use platform_mod, only: r4_kind, r8_kind
 
 implicit none
 private
