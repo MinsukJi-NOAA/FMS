@@ -820,7 +820,7 @@
      select type (hc)
      type is (real(kind=r4_kind))
        hc_loc = hc
-     type is (real(kind=r4_kind))
+     type is (real(kind=r8_kind))
        hc_loc = hc
      end select
    else
