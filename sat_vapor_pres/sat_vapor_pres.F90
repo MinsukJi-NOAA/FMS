@@ -2720,13 +2720,15 @@ subroutine show_all_bad_0d ( temp )
  select type (temp)
  type is (real(kind=r4_kind))
    ind = int(dtinv*(temp-tmin+teps))
+   if (ind < 0 .or. ind > nlim) then
+     write(unit,'(a,e10.3,a,i6)') 'Bad temperature=',temp,' pe=',mpp_pe()
+   endif
  type is (real(kind=r8_kind))
    ind = int(dtinv*(temp-tmin+teps))
+   if (ind < 0 .or. ind > nlim) then
+     write(unit,'(a,e10.3,a,i6)') 'Bad temperature=',temp,' pe=',mpp_pe()
+   endif
  end select
-
- if (ind < 0 .or. ind > nlim) then
-   write(unit,'(a,e10.3,a,i6)') 'Bad temperature=',temp,' pe=',mpp_pe()
- endif
 
  end subroutine show_all_bad_0d
 
