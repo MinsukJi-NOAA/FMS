@@ -1615,7 +1615,8 @@ CONTAINS
     IF ( PRESENT(ke_in) ) ke = ke_in
     twohi = n1-(ie-is+1)
     IF ( MOD(twohi,2) /= 0 ) THEN
-       IF ( fms_error_handler('diag_manager_mod::send_data_3d', 'non-symmetric halos in first dimension', err_msg) ) THEN
+       IF ( fms_error_handler('diag_manager_mod::send_data_3d', 'non-symmetric halos in first dimension', &
+          & err_msg) ) THEN
           DEALLOCATE(field_out)
           DEALLOCATE(oor_mask)
           RETURN
@@ -1623,7 +1624,8 @@ CONTAINS
     END IF
     twohj = n2-(je-js+1)
     IF ( MOD(twohj,2) /= 0 ) THEN
-       IF ( fms_error_handler('diag_manager_mod::send_data_3d', 'non-symmetric halos in second dimension', err_msg) ) THEN
+       IF ( fms_error_handler('diag_manager_mod::send_data_3d', 'non-symmetric halos in second dimension', &
+          & err_msg) ) THEN
           DEALLOCATE(field_out)
           DEALLOCATE(oor_mask)
           RETURN
@@ -2218,10 +2220,12 @@ CONTAINS
                                   i1 = i-l_start(1)-hi+1
                                   j1 =  j-l_start(2)-hj+1
                                   IF ( pow_value /= 1 ) THEN
-                                     output_fields(out_num)%buffer(i1,j1,:,sample)= output_fields(out_num)%buffer(i1,j1,:,sample)+ &
+                                     output_fields(out_num)%buffer(i1,j1,:,sample)= &
+                                          & output_fields(out_num)%buffer(i1,j1,:,sample)+ &
                                           & (field_out(i-is+1+hi,j-js+1+hj,l_start(3):l_end(3))*weight1)**(pow_value)
                                   ELSE
-                                     output_fields(out_num)%buffer(i1,j1,:,sample)= output_fields(out_num)%buffer(i1,j1,:,sample)+ &
+                                     output_fields(out_num)%buffer(i1,j1,:,sample)= &
+                                          & output_fields(out_num)%buffer(i1,j1,:,sample)+ &
                                           & field_out(i-is+1+hi,j-js+1+hj,l_start(3):l_end(3))*weight1
                                   END IF
                                END IF
@@ -2236,10 +2240,12 @@ CONTAINS
                                   i1 = i-l_start(1)-hi+1
                                   j1 =  j-l_start(2)-hj+1
                                   IF ( pow_value /= 1 ) THEN
-                                     output_fields(out_num)%buffer(i1,j1,:,sample)= output_fields(out_num)%buffer(i1,j1,:,sample)+ &
+                                     output_fields(out_num)%buffer(i1,j1,:,sample)= &
+                                          & output_fields(out_num)%buffer(i1,j1,:,sample)+ &
                                           & (field_out(i-is+1+hi,j-js+1+hj,l_start(3):l_end(3))*weight1)**(pow_value)
                                   ELSE
-                                     output_fields(out_num)%buffer(i1,j1,:,sample)= output_fields(out_num)%buffer(i1,j1,:,sample)+ &
+                                     output_fields(out_num)%buffer(i1,j1,:,sample)= &
+                                          & output_fields(out_num)%buffer(i1,j1,:,sample)+ &
                                           & field_out(i-is+1+hi,j-js+1+hj,l_start(3):l_end(3))*weight1
                                   END IF
                                END IF
@@ -2401,7 +2407,8 @@ CONTAINS
                             DO j=l_start(2)+hj, l_end(2)+hj
                                DO i=l_start(1)+hi, l_end(1)+hi
                                   IF ( field_out(i,j,k) /= missvalue ) THEN
-                                     output_fields(out_num)%count_0d(sample) = output_fields(out_num)%count_0d(sample) + weight1
+                                     output_fields(out_num)%count_0d(sample) = output_fields(out_num)%count_0d(sample)&
+                                                                             & + weight1
                                      EXIT outer0
                                   END IF
                                END DO
@@ -2465,7 +2472,8 @@ CONTAINS
                          DO j=f3, f4
                             DO i=f1, f2
                                IF ( field_out(i,j,k) /= missvalue ) THEN
-                                  output_fields(out_num)%count_0d(sample) = output_fields(out_num)%count_0d(sample) + weight1
+                                  output_fields(out_num)%count_0d(sample) = output_fields(out_num)%count_0d(sample) &
+                                                                          & + weight1
                                   EXIT outer3
                                END IF
                             END DO
@@ -2532,7 +2540,8 @@ CONTAINS
                          DO j=f3, f4
                             DO i=f1, f2
                                IF ( field_out(i,j,k) /= missvalue ) THEN
-                                  output_fields(out_num)%count_0d(sample) = output_fields(out_num)%count_0d(sample) + weight1
+                                  output_fields(out_num)%count_0d(sample) = output_fields(out_num)%count_0d(sample) &
+                                                                          & + weight1
                                   EXIT outer1
                                END IF
                             END DO
@@ -2550,10 +2559,12 @@ CONTAINS
                                   i1 = i-l_start(1)-hi+1
                                   j1=  j-l_start(2)-hj+1
                                   IF ( pow_value /= 1 ) THEN
-                                     output_fields(out_num)%buffer(i1,j1,:,sample)= output_fields(out_num)%buffer(i1,j1,:,sample) +&
+                                     output_fields(out_num)%buffer(i1,j1,:,sample)= &
+                                          & output_fields(out_num)%buffer(i1,j1,:,sample) +&
                                           & (field_out(i-is+1+hi,j-js+1+hj,l_start(3):l_end(3))*weight1)**(pow_value)
                                   ELSE
-                                     output_fields(out_num)%buffer(i1,j1,:,sample)= output_fields(out_num)%buffer(i1,j1,:,sample) +&
+                                     output_fields(out_num)%buffer(i1,j1,:,sample)= &
+                                          & output_fields(out_num)%buffer(i1,j1,:,sample) +&
                                           & field_out(i-is+1+hi,j-js+1+hj,l_start(3):l_end(3))*weight1
                                   END IF
                                END IF
@@ -2568,10 +2579,12 @@ CONTAINS
                                   i1 = i-l_start(1)-hi+1
                                   j1=  j-l_start(2)-hj+1
                                   IF ( pow_value /= 1 ) THEN
-                                     output_fields(out_num)%buffer(i1,j1,:,sample)= output_fields(out_num)%buffer(i1,j1,:,sample) +&
+                                     output_fields(out_num)%buffer(i1,j1,:,sample)= &
+                                          & output_fields(out_num)%buffer(i1,j1,:,sample) +&
                                           & (field_out(i-is+1+hi,j-js+1+hj,l_start(3):l_end(3))*weight1)**(pow_value)
                                   ELSE
-                                     output_fields(out_num)%buffer(i1,j1,:,sample)= output_fields(out_num)%buffer(i1,j1,:,sample) +&
+                                     output_fields(out_num)%buffer(i1,j1,:,sample)= &
+                                          & output_fields(out_num)%buffer(i1,j1,:,sample) +&
                                           & field_out(i-is+1+hi,j-js+1+hj,l_start(3):l_end(3))*weight1
                                   END IF
                                END IF
@@ -2681,8 +2694,8 @@ CONTAINS
                             & j <= l_end(2)+hj ) THEN
                             i1 = i-l_start(1)-hi+1
                             j1=  j-l_start(2)-hj+1
-                            IF ( mask(i-is+1+hi,j-js+1+hj,k) .AND.&
-                                 & field_out(i-is+1+hi,j-js+1+hj,k)>output_fields(out_num)%buffer(i1,j1,k1,sample)) THEN
+                            IF ( mask(i-is+1+hi,j-js+1+hj,k) .AND. field_out(i-is+1+hi,j-js+1+hj,k)>&
+                               & output_fields(out_num)%buffer(i1,j1,k1,sample) ) THEN
                                output_fields(out_num)%buffer(i1,j1,k1,sample) = field_out(i-is+1+hi,j-js+1+hj,k)
                             END IF
                          END IF
@@ -2693,8 +2706,8 @@ CONTAINS
              ELSE IF ( reduced_k_range ) THEN
                 ksr = l_start(3)
                 ker = l_end(3)
-                WHERE ( mask(f1:f2,f3:f4,ksr:ker) .AND. &
-                     & field_out(f1:f2,f3:f4,ksr:ker) > output_fields(out_num)%buffer(is-hi:ie-hi,js-hj:je-hj,:,sample))&
+                WHERE ( mask(f1:f2,f3:f4,ksr:ker) .AND. field_out(f1:f2,f3:f4,ksr:ker) >&
+                      & output_fields(out_num)%buffer(is-hi:ie-hi,js-hj:je-hj,:,sample) )&
                      & output_fields(out_num)%buffer(is-hi:ie-hi,js-hj:je-hj,:,sample) = field_out(f1:f2,f3:f4,ksr:ker)
              ELSE
                 IF ( debug_diag_manager ) THEN
@@ -2708,9 +2721,9 @@ CONTAINS
                       END IF
                    END IF
                 END IF
-                WHERE ( mask(f1:f2,f3:f4,ks:ke) .AND.&
-                     & field_out(f1:f2,f3:f4,ks:ke)>output_fields(out_num)%buffer(is-hi:ie-hi,js-hj:je-hj,ks:ke,sample))&
-                     & output_fields(out_num)%buffer(is-hi:ie-hi,js-hj:je-hj,ks:ke,sample) = field_out(f1:f2,f3:f4,ks:ke)
+                WHERE ( mask(f1:f2,f3:f4,ks:ke) .AND. field_out(f1:f2,f3:f4,ks:ke)>&
+                      & output_fields(out_num)%buffer(is-hi:ie-hi,js-hj:je-hj,ks:ke,sample) )&
+                   & output_fields(out_num)%buffer(is-hi:ie-hi,js-hj:je-hj,ks:ke,sample) = field_out(f1:f2,f3:f4,ks:ke)
              END IF
           ELSE
              IF ( need_compute ) THEN
@@ -2722,7 +2735,7 @@ CONTAINS
                           & j <= l_end(2)+hj ) THEN
                             i1 = i-l_start(1)-hi+1
                             j1 =  j-l_start(2)-hj+1
-                            IF ( field_out(i-is+1+hi,j-js+1+hj,k) > output_fields(out_num)%buffer(i1,j1,k1,sample) ) THEN
+                            IF ( field_out(i-is+1+hi,j-js+1+hj,k)>output_fields(out_num)%buffer(i1,j1,k1,sample) ) THEN
                                output_fields(out_num)%buffer(i1,j1,k1,sample) = field_out(i-is+1+hi,j-js+1+hj,k)
                             END IF
                          END IF
@@ -2733,8 +2746,9 @@ CONTAINS
              ELSE IF ( reduced_k_range ) THEN
                 ksr = l_start(3)
                 ker = l_end(3)
-                WHERE ( field_out(f1:f2,f3:f4,ksr:ker) > output_fields(out_num)%buffer(is-hi:ie-hi,js-hj:je-hj,:,sample) ) &
-                     & output_fields(out_num)%buffer(is-hi:ie-hi,js-hj:je-hj,:,sample) = field_out(f1:f2,f3:f4,ksr:ker)
+                WHERE ( field_out(f1:f2,f3:f4,ksr:ker) >&
+                      & output_fields(out_num)%buffer(is-hi:ie-hi,js-hj:je-hj,:,sample) ) &
+                   & output_fields(out_num)%buffer(is-hi:ie-hi,js-hj:je-hj,:,sample) = field_out(f1:f2,f3:f4,ksr:ker)
              ELSE
                 IF ( debug_diag_manager ) THEN
                    CALL update_bounds(out_num, is-hi, ie-hi, js-hj, je-hj, ks, ke)
@@ -2747,8 +2761,9 @@ CONTAINS
                       END IF
                    END IF
                 END IF
-                WHERE ( field_out(f1:f2,f3:f4,ks:ke) > output_fields(out_num)%buffer(is-hi:ie-hi,js-hj:je-hj,ks:ke,sample) ) &
-                     & output_fields(out_num)%buffer(is-hi:ie-hi,js-hj:je-hj,ks:ke,sample) = field_out(f1:f2,f3:f4,ks:ke)
+                WHERE ( field_out(f1:f2,f3:f4,ks:ke) >&
+                      & output_fields(out_num)%buffer(is-hi:ie-hi,js-hj:je-hj,ks:ke,sample) ) &
+                   & output_fields(out_num)%buffer(is-hi:ie-hi,js-hj:je-hj,ks:ke,sample) = field_out(f1:f2,f3:f4,ks:ke)
              END IF
           END IF
           output_fields(out_num)%count_0d(sample) = 1
@@ -2763,8 +2778,8 @@ CONTAINS
                             & j <= l_end(2)+hj ) THEN
                             i1 = i-l_start(1)-hi+1
                             j1 =  j-l_start(2)-hj+1
-                            IF ( mask(i-is+1+hi,j-js+1+hj,k) .AND.&
-                                 & field_out(i-is+1+hi,j-js+1+hj,k) < output_fields(out_num)%buffer(i1,j1,k1,sample) ) THEN
+                            IF ( mask(i-is+1+hi,j-js+1+hj,k) .AND. field_out(i-is+1+hi,j-js+1+hj,k) <&
+                               & output_fields(out_num)%buffer(i1,j1,k1,sample) ) THEN
                                output_fields(out_num)%buffer(i1,j1,k1,sample) = field_out(i-is+1+hi,j-js+1+hj,k)
                             END IF
                          END IF
@@ -2775,9 +2790,9 @@ CONTAINS
              ELSE IF ( reduced_k_range ) THEN
                 ksr= l_start(3)
                 ker= l_end(3)
-                WHERE ( mask(f1:f2,f3:f4,ksr:ker) .AND.&
-                     & field_out(f1:f2,f3:f4,ksr:ker) < output_fields(out_num)%buffer(is-hi:ie-hi,js-hj:je-hj,:,sample)) &
-                     & output_fields(out_num)%buffer(is-hi:ie-hi,js-hj:je-hj,:,sample) = field_out(f1:f2,f3:f4,ksr:ker)
+                WHERE ( mask(f1:f2,f3:f4,ksr:ker) .AND. field_out(f1:f2,f3:f4,ksr:ker) <&
+                      & output_fields(out_num)%buffer(is-hi:ie-hi,js-hj:je-hj,:,sample) ) &
+                   & output_fields(out_num)%buffer(is-hi:ie-hi,js-hj:je-hj,:,sample) = field_out(f1:f2,f3:f4,ksr:ker)
              ELSE
                 IF ( debug_diag_manager ) THEN
                    CALL update_bounds(out_num, is-hi, ie-hi, js-hj, je-hj, ks, ke)
@@ -2790,9 +2805,9 @@ CONTAINS
                       END IF
                    END IF
                 END IF
-                WHERE ( mask(f1:f2,f3:f4,ks:ke) .AND.&
-                     & field_out(f1:f2,f3:f4,ks:ke) < output_fields(out_num)%buffer(is-hi:ie-hi,js-hj:je-hj,ks:ke,sample) ) &
-                     & output_fields(out_num)%buffer(is-hi:ie-hi,js-hj:je-hj,ks:ke,sample) = field_out(f1:f2,f3:f4,ks:ke)
+                WHERE ( mask(f1:f2,f3:f4,ks:ke) .AND. field_out(f1:f2,f3:f4,ks:ke) <&
+                      & output_fields(out_num)%buffer(is-hi:ie-hi,js-hj:je-hj,ks:ke,sample) ) &
+                   & output_fields(out_num)%buffer(is-hi:ie-hi,js-hj:je-hj,ks:ke,sample) = field_out(f1:f2,f3:f4,ks:ke)
              END IF
           ELSE
              IF ( need_compute ) THEN
@@ -2803,7 +2818,8 @@ CONTAINS
                          IF ( l_start(1)+hi <=i.AND.i<=l_end(1)+hi.AND.l_start(2)+hj<=j.AND.j<=l_end(2)+hj) THEN
                             i1 = i-l_start(1)-hi+1
                             j1=  j-l_start(2)-hj+1
-                            IF ( field_out(i-is+1+hi,j-js+1+hj,k) < output_fields(out_num)%buffer(i1,j1,k1,sample) ) THEN
+                            IF ( field_out(i-is+1+hi,j-js+1+hj,k) <&
+                               & output_fields(out_num)%buffer(i1,j1,k1,sample) ) THEN
                                output_fields(out_num)%buffer(i1,j1,k1,sample) = field_out(i-is+1+hi,j-js+1+hj,k)
                             END IF
                          END IF
@@ -2814,8 +2830,9 @@ CONTAINS
              ELSE IF ( reduced_k_range ) THEN
                 ksr= l_start(3)
                 ker= l_end(3)
-                WHERE ( field_out(f1:f2,f3:f4,ksr:ker) < output_fields(out_num)%buffer(is-hi:ie-hi,js-hj:je-hj,:,sample) ) &
-                     output_fields(out_num)%buffer(is-hi:ie-hi,js-hj:je-hj,:,sample) = field_out(f1:f2,f3:f4,ksr:ker)
+                WHERE ( field_out(f1:f2,f3:f4,ksr:ker) <&
+                      & output_fields(out_num)%buffer(is-hi:ie-hi,js-hj:je-hj,:,sample) ) &
+                   & output_fields(out_num)%buffer(is-hi:ie-hi,js-hj:je-hj,:,sample) = field_out(f1:f2,f3:f4,ksr:ker)
              ELSE
                 IF ( debug_diag_manager ) THEN
                    CALL update_bounds(out_num, is-hi, ie-hi, js-hj, je-hj, ks, ke)
@@ -2828,8 +2845,9 @@ CONTAINS
                       END IF
                    END IF
                 END IF
-                WHERE ( field_out(f1:f2,f3:f4,ks:ke) < output_fields(out_num)%buffer(is-hi:ie-hi,js-hj:je-hj,ks:ke,sample) )&
-                     & output_fields(out_num)%buffer(is-hi:ie-hi,js-hj:je-hj,ks:ke,sample) = field_out(f1:f2,f3:f4,ks:ke)
+                WHERE ( field_out(f1:f2,f3:f4,ks:ke) <&
+                      & output_fields(out_num)%buffer(is-hi:ie-hi,js-hj:je-hj,ks:ke,sample) )&
+                   & output_fields(out_num)%buffer(is-hi:ie-hi,js-hj:je-hj,ks:ke,sample) = field_out(f1:f2,f3:f4,ks:ke)
              END IF
           END IF
           output_fields(out_num)%count_0d(sample) = 1
@@ -2925,7 +2943,8 @@ CONTAINS
                    IF ( l_start(1)+hi <= i .AND. i <= l_end(1)+hi .AND. l_start(2)+hj <= j .AND. j <= l_end(2)+hj) THEN
                       i1 = i-l_start(1)-hi+1
                       j1 = j-l_start(2)-hj+1
-                      output_fields(out_num)%buffer(i1,j1,:,sample) = field_out(i-is+1+hi,j-js+1+hj,l_start(3):l_end(3))
+                      output_fields(out_num)%buffer(i1,j1,:,sample) =&
+                         & field_out(i-is+1+hi,j-js+1+hj,l_start(3):l_end(3))
                    END IF
                 END DO
              END DO
@@ -3010,7 +3029,8 @@ CONTAINS
                    k1 = k - l_start(3) + 1
                    DO j = js, je
                       DO i = is, ie
-                         IF ( l_start(1)+hi <= i .AND. i <= l_end(1)+hi .AND. l_start(2)+hj <= j .AND. j <= l_end(2)+hj ) THEN
+                         IF ( l_start(1)+hi <= i .AND. i <= l_end(1)+hi .AND. l_start(2)+hj <= j .AND.&
+                            & j <= l_end(2)+hj ) THEN
                             i1 = i-l_start(1)-hi+1
                             j1 =  j-l_start(2)-hj+1
                             IF ( rmask(i-is+1+hi,j-js+1+hj,k) < 0.5_r4_kind ) &
@@ -3024,7 +3044,8 @@ CONTAINS
                    k1 = k - l_start(3) + 1
                    DO j = js, je
                       DO i = is, ie
-                         IF ( l_start(1)+hi <= i .AND. i <= l_end(1)+hi .AND. l_start(2)+hj <= j .AND. j <= l_end(2)+hj ) THEN
+                         IF ( l_start(1)+hi <= i .AND. i <= l_end(1)+hi .AND. l_start(2)+hj <= j .AND.&
+                            & j <= l_end(2)+hj ) THEN
                             i1 = i-l_start(1)-hi+1
                             j1 =  j-l_start(2)-hj+1
                             IF ( rmask(i-is+1+hi,j-js+1+hj,k) < 0.5_r8_kind ) &
